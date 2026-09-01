@@ -574,14 +574,14 @@
     </div>
     <div class="card">
       <div class="row">
-        <div class="field">
-          <label for="se-mes">Mês</label>
-          <input type="month" id="se-mes">
-        </div>
-        <div class="checkbox-row" style="margin-left:auto;">
+        <div class="checkbox-row">
           <input type="checkbox" id="se-somente-pedidos" checked>
           <label for="se-somente-pedidos">Mostrar só itens pedidos</label>
         </div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Datas de aprovação <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
+        <div class="day-toggle-row" id="se-dias"></div>
       </div>
     </div>
     <div class="card">
@@ -2415,12 +2415,12 @@ function setupConsolidado(){
   // Começa com o mês atual pré-selecionado (mesmo ponto de partida de antes);
   // o usuário pode desmarcar/marcar datas de qualquer mês a partir daí.
   const mesInicial = mesAtual();
-  coDatasSelecionadas = new Set(datasDisponiveisConsolidado().filter(d => d.slice(0,7) === mesInicial));
+  coDatasSelecionadas = new Set(datasAprovacaoFacilitesDisponiveis().filter(d => d.slice(0,7) === mesInicial));
   renderDiaChipsConsolidado();
 }
 // Todas as datas exatas em que houve ao menos um pedido de facilites
 // aprovado, em ordem cronológica — só essas aparecem como opção.
-function datasDisponiveisConsolidado(){
+function datasAprovacaoFacilitesDisponiveis(){
   const datas = new Set();
   pedidosState.pedidosFacilites.forEach(p => {
     if (p.status === 'Aprovado'){
@@ -2431,7 +2431,7 @@ function datasDisponiveisConsolidado(){
   return [...datas].sort();
 }
 function renderDiaChipsConsolidado(){
-  const datas = datasDisponiveisConsolidado();
+  const datas = datasAprovacaoFacilitesDisponiveis();
   // datas que ficaram selecionadas mas não existem mais não contam
   coDatasSelecionadas = new Set([...coDatasSelecionadas].filter(d => datas.includes(d)));
   const wrap = document.getElementById('co-dias');
@@ -2532,20 +2532,57 @@ function baixarConsolidadoCsv(){
 }
 
 /* =========================== FACILITES: SEPARAÇÃO =========================== */
+// Mesmo filtro de "Datas de aprovação" da tela Consolidado (ver
+// coDatasSelecionadas), só que com seu próprio estado — as duas telas
+// filtram independentemente uma da outra.
+let seDatasSelecionadas = new Set();
+
 function setupSeparacao(){
-  document.getElementById('se-mes').value = mesAtual();
-  ['se-mes','se-somente-pedidos'].forEach(id => document.getElementById(id).addEventListener('input', renderSeparacao));
+  document.getElementById('se-somente-pedidos').addEventListener('input', renderSeparacao);
   document.getElementById('se-baixar').addEventListener('click', () => baixarSeparacaoCsv());
   const thead = document.getElementById('se-thead-row');
   thead.innerHTML = '<th class="sticky-col">Categoria</th><th class="sticky-col" style="left:110px;">Produto</th>' +
     UNIDADES.map(u => `<th class="num">${u.nome.replace('Nave ','')}</th>`).join('') + '<th class="num">Total</th>';
+  const mesInicial = mesAtual();
+  seDatasSelecionadas = new Set(datasAprovacaoFacilitesDisponiveis().filter(d => d.slice(0,7) === mesInicial));
+  renderDiaChipsSeparacao();
 }
-function computeSeparacao(mes){
+function renderDiaChipsSeparacao(){
+  const datas = datasAprovacaoFacilitesDisponiveis();
+  seDatasSelecionadas = new Set([...seDatasSelecionadas].filter(d => datas.includes(d)));
+  const wrap = document.getElementById('se-dias');
+  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido de facilites aprovado ainda</span>'; return; }
+  const todosAtivo = seDatasSelecionadas.size === 0;
+  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
+  let grupoAtual = null;
+  datas.forEach(iso => {
+    const [ano, mesNum, dia] = iso.split('-').map(Number);
+    const chaveGrupo = ano + '-' + mesNum;
+    if (chaveGrupo !== grupoAtual){
+      grupoAtual = chaveGrupo;
+      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
+    }
+    html += `<button type="button" class="day-toggle${seDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const iso = btn.dataset.data;
+      if (iso === ''){ seDatasSelecionadas = new Set(); }
+      else{
+        if (seDatasSelecionadas.has(iso)) seDatasSelecionadas.delete(iso); else seDatasSelecionadas.add(iso);
+      }
+      renderSeparacao();
+    });
+  });
+}
+function computeSeparacao(){
   const itens = flatItensFacilites(true);
   return CATALOGO_FACILITES.map(item => {
     const porUnidade = UNIDADES.map(u => {
       const qtd = itens
-        .filter(p => p.mes === mes && p.produto === item.produto && p.unidade === u.nome)
+        .filter(p => p.produto === item.produto && p.unidade === u.nome &&
+          (seDatasSelecionadas.size === 0 || seDatasSelecionadas.has(dataAprovacaoISO(p.dataAprovacao))))
         .reduce((s,p)=> s + Number(p.quantidade||0), 0);
       return qtd;
     });
@@ -2554,9 +2591,9 @@ function computeSeparacao(mes){
   });
 }
 function renderSeparacao(){
-  const mes = document.getElementById('se-mes').value;
+  renderDiaChipsSeparacao();
   const somentePedidos = document.getElementById('se-somente-pedidos').checked;
-  let rows = computeSeparacao(mes);
+  let rows = computeSeparacao();
   if (somentePedidos) rows = rows.filter(r => r.total > 0);
   rows.sort((a,b) => a.categoria.localeCompare(b.categoria) || b.total - a.total);
   const tbody = document.querySelector('#se-tabela tbody');
@@ -2565,18 +2602,18 @@ function renderSeparacao(){
       <td class="sticky-col">${r.categoria}</td><td class="sticky-col" style="left:110px;">${r.produto}</td>
       ${r.porUnidade.map(q => `<td class="num mono">${q||''}</td>`).join('')}
       <td class="num mono" style="font-weight:600;">${r.total}</td>
-    </tr>`).join('') : `<tr><td colspan="${UNIDADES.length+3}"><div class="empty">Nenhum pedido de facilites nesse mês ainda.</div></td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="${UNIDADES.length+3}"><div class="empty">Nenhum pedido de facilites ${seDatasSelecionadas.size ? 'nessas datas' : 'ainda'}.</div></td></tr>`;
 }
 
 function baixarSeparacaoCsv(){
-  const mes = document.getElementById('se-mes').value;
-  const rows = computeSeparacao(mes).filter(r => r.total > 0).sort((a,b) => a.categoria.localeCompare(b.categoria) || b.total - a.total);
-  if (!rows.length){ toast('Não há pedido de facilites aprovado nesse mês ainda.', 'error'); return; }
+  const datasSufixo = seDatasSelecionadas.size ? '_' + [...seDatasSelecionadas].sort().join('_') : '_todas-as-datas';
+  const rows = computeSeparacao().filter(r => r.total > 0).sort((a,b) => a.categoria.localeCompare(b.categoria) || b.total - a.total);
+  if (!rows.length){ toast(`Não há pedido de facilites aprovado ${seDatasSelecionadas.size ? 'nessas datas' : 'ainda'}.`, 'error'); return; }
   const header = ['CATEGORIA','PRODUTO', ...UNIDADES.map(u => nomeUnidadeCurto(u.nome).toUpperCase()), 'TOTAL'];
   const lines = [header.join(';')];
   rows.forEach(r => lines.push([r.categoria, r.produto, ...r.porUnidade, r.total].join(';')));
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Separacao_Facilites_PorUnidade_${mes}.csv`, csv);
+  offerDownload(`Separacao_Facilites_PorUnidade${datasSufixo}.csv`, csv);
 }
 
 /* =========================== HISTÓRICO =========================== */
