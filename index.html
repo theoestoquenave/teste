@@ -2396,6 +2396,12 @@ function numerosNoNome(nome){ return normStr(nome).match(/\d+/g) || []; }
 // bate no termo "fita" junto com fita de glicemia, produtos completamente diferentes.
 var CORRELACAO_TERMOS_SOMAR_SEM_NUMERO = { gripe:true };
 
+// Serviços que a busca por palavra-chave nunca ia achar sozinha, porque o nome do serviço não
+// compartilha nenhum token com o do produto — pedido do usuário, 2026-09-01: "pode somar 'Plano
+// WeVets Vacina Polivalente / V7 / V8 / V10' a múltipla da MSD" (mesma vacina — DHPPi+L —, só que
+// vendida avulsa em vez de por plano). Lista explícita por termo, somada aos matches por nome.
+var CORRELACAO_SERVICOS_EXTRA = { multipla: ['Plano WeVets Vacina Polivalente / V7 / V8 / V10'] };
+
 function correlacionarItemComServicos(item){
   var tokensItem = tokensSignificativos(item.nome);
   if(!tokensItem.length) return { termo:null, matches:[] };
@@ -2403,22 +2409,31 @@ function correlacionarItemComServicos(item){
   var candidatosBrutos = (STATE.tiposServico||[]).filter(function(t){
     return tokensSignificativos(t.nome).indexOf(termo) >= 0;
   });
-  if(!candidatosBrutos.length) return { termo: termo, matches: [] };
-  // Quando mais de um item do catálogo compartilha essa mesma palavra-chave (ex.: "CYTOPOINT 10
-  // MG", "...20 MG", "...30 MG", "...40 MG" — variações de dose do mesmo produto), o nome sozinho
-  // não desambigua. Nesse caso exige que o número (dose) também bata entre item e serviço — e,
-  // se não der pra confirmar, prefere não correlacionar a arriscar juntar consumo de doses erradas.
-  var irmaos = STATE.itens.filter(function(i){ return tokensSignificativos(i.nome)[0]===termo; });
-  if(irmaos.length<=1) return { termo: termo, matches: candidatosBrutos.map(function(t){return t.nome;}) };
-  var numItem = numerosNoNome(item.nome);
-  if(!numItem.length && CORRELACAO_TERMOS_SOMAR_SEM_NUMERO[termo]){
-    return { termo: termo, matches: candidatosBrutos.map(function(t){return t.nome;}) };
+  var matches;
+  if(!candidatosBrutos.length){
+    matches = [];
+  }else{
+    // Quando mais de um item do catálogo compartilha essa mesma palavra-chave (ex.: "CYTOPOINT 10
+    // MG", "...20 MG", "...30 MG", "...40 MG" — variações de dose do mesmo produto), o nome sozinho
+    // não desambigua. Nesse caso exige que o número (dose) também bata entre item e serviço — e,
+    // se não der pra confirmar, prefere não correlacionar a arriscar juntar consumo de doses erradas.
+    var irmaos = STATE.itens.filter(function(i){ return tokensSignificativos(i.nome)[0]===termo; });
+    var numItem = numerosNoNome(item.nome);
+    if(irmaos.length<=1 || (!numItem.length && CORRELACAO_TERMOS_SOMAR_SEM_NUMERO[termo])){
+      matches = candidatosBrutos.map(function(t){return t.nome;});
+    }else{
+      matches = candidatosBrutos.filter(function(t){
+        var numServ = numerosNoNome(t.nome);
+        return numServ.length && numItem.some(function(n){ return numServ.indexOf(n)>=0; });
+      }).map(function(t){return t.nome;});
+    }
   }
-  var desambiguados = candidatosBrutos.filter(function(t){
-    var numServ = numerosNoNome(t.nome);
-    return numServ.length && numItem.some(function(n){ return numServ.indexOf(n)>=0; });
+  (CORRELACAO_SERVICOS_EXTRA[termo]||[]).forEach(function(nomeServico){
+    if(matches.indexOf(nomeServico)<0 && (STATE.tiposServico||[]).some(function(t){return t.nome===nomeServico;})){
+      matches.push(nomeServico);
+    }
   });
-  return { termo: termo, matches: desambiguados.map(function(t){return t.nome;}) };
+  return { termo: termo, matches: matches };
 }
 
 // saidaMediaMensal: pedido do usuário, 2026-08-28 — média de saída mensal do item, exibida no
