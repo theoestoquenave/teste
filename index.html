@@ -2388,6 +2388,14 @@ function tokensSignificativos(nome){
 }
 function numerosNoNome(nome){ return normStr(nome).match(/\d+/g) || []; }
 
+// Termos onde vale somar todos os "irmãos" mesmo sem número pra desambiguar — pedido do usuário,
+// 2026-09-01: "Gripe MSD (oral), Gripe MSD (nasal), Gripe Zoetis (injetável) - pode correlacionar
+// somando todas com 'vacina de gripe'", já que são a mesma vacina em vias de aplicação diferentes,
+// não doses distintas. É uma lista explícita (não um comportamento padrão) porque o mesmo "sem
+// número, soma tudo" seria errado pra outros grupos sem dose no nome — ex.: "FITA PARA AUTOCLAVE"
+// bate no termo "fita" junto com fita de glicemia, produtos completamente diferentes.
+var CORRELACAO_TERMOS_SOMAR_SEM_NUMERO = { gripe:true };
+
 function correlacionarItemComServicos(item){
   var tokensItem = tokensSignificativos(item.nome);
   if(!tokensItem.length) return { termo:null, matches:[] };
@@ -2403,6 +2411,9 @@ function correlacionarItemComServicos(item){
   var irmaos = STATE.itens.filter(function(i){ return tokensSignificativos(i.nome)[0]===termo; });
   if(irmaos.length<=1) return { termo: termo, matches: candidatosBrutos.map(function(t){return t.nome;}) };
   var numItem = numerosNoNome(item.nome);
+  if(!numItem.length && CORRELACAO_TERMOS_SOMAR_SEM_NUMERO[termo]){
+    return { termo: termo, matches: candidatosBrutos.map(function(t){return t.nome;}) };
+  }
   var desambiguados = candidatosBrutos.filter(function(t){
     var numServ = numerosNoNome(t.nome);
     return numServ.length && numItem.some(function(n){ return numServ.indexOf(n)>=0; });
