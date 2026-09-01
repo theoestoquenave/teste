@@ -210,6 +210,11 @@
   .day-toggle:hover{background:var(--surface-alt);}
   .day-toggle.active{background:var(--accent); border-color:var(--accent); color:#fff;}
   .day-toggle.all{color:var(--ink-faint);}
+  .day-group-label{
+    display:flex; align-items:center; font-size:11px; font-weight:600; color:var(--ink-faint);
+    text-transform:uppercase; letter-spacing:.05em; padding:0 2px; align-self:center;
+  }
+  .day-group-label:not(:first-child){margin-left:6px;}
 
   @media (max-width:780px){
     body{flex-direction:column;}
@@ -530,22 +535,18 @@
     <div class="topbar">
       <div>
         <h1>Consolidado de compra — Facilites</h1>
-        <p>Quantidade total a comprar de cada item no mês, somando o pedido das 12 unidades — separado por <strong>fornecedor</strong> (Gimba, Sales, Kalunga, Nescafé, Distribuição própria), já que a compra de Facilites é feita de uma vez só (tudo pra Nave Tatuapé) e depois separada manualmente por unidade — veja a tela "Separação por unidade" pra isso.</p>
+        <p>Quantidade total a comprar de cada item no período selecionado, somando o pedido das 12 unidades — separado por <strong>fornecedor</strong> (Gimba, Sales, Kalunga, Nescafé, Distribuição própria), já que a compra de Facilites é feita de uma vez só (tudo pra Nave Tatuapé) e depois separada manualmente por unidade — veja a tela "Separação por unidade" pra isso.</p>
       </div>
     </div>
     <div class="card">
       <div class="row">
-        <div class="field">
-          <label for="co-mes">Mês</label>
-          <input type="month" id="co-mes">
-        </div>
-        <div class="checkbox-row" style="margin-left:auto;">
+        <div class="checkbox-row">
           <input type="checkbox" id="co-somente-pedidos" checked>
           <label for="co-somente-pedidos">Mostrar só itens pedidos</label>
         </div>
       </div>
       <div class="field" style="margin-top:14px;">
-        <label>Dia da aprovação</label>
+        <label>Datas de aprovação <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
         <div class="day-toggle-row" id="co-dias"></div>
       </div>
     </div>
@@ -2392,66 +2393,77 @@ function flatItensFacilites(somenteAprovados){
 // Dia do mês (1-31, hora local) em que um pedido foi aprovado — usado pelo
 // filtro de dia da tela Consolidado. null quando o pedido não tem data de
 // aprovação (não deveria acontecer aqui, já que só entram itens Aprovados).
-function diaAprovacao(iso){
+// Formato "YYYY-MM-DD" (hora local) a partir do timestamp de aprovação de um
+// pedido — usado pra comparar/agrupar por data exata, cruzando meses quando
+// necessário (ex.: 31/08 e 01/09 juntos no mesmo filtro).
+function dataAprovacaoISO(iso){
   if (!iso) return null;
-  return new Date(iso).getDate();
+  const d = new Date(iso);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
+const NOMES_MES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
 /* =========================== FACILITES: CONSOLIDADO =========================== */
-// Dias (do mês selecionado em #co-mes) marcados no filtro de "Dia da
-// aprovação" — vazio significa sem filtro (mostra o mês inteiro, como antes).
-let coDiasSelecionados = new Set();
+// Datas exatas (YYYY-MM-DD) marcadas no filtro "Datas de aprovação" — podem
+// vir de meses diferentes. Vazio significa sem filtro (mostra tudo).
+let coDatasSelecionadas = new Set();
 
 function setupConsolidado(){
-  document.getElementById('co-mes').value = mesAtual();
-  document.getElementById('co-mes').addEventListener('input', () => { coDiasSelecionados = new Set(); renderDiaChipsConsolidado(); renderConsolidado(); });
   document.getElementById('co-somente-pedidos').addEventListener('input', renderConsolidado);
   document.getElementById('co-baixar').addEventListener('click', () => baixarConsolidadoCsv());
+  // Começa com o mês atual pré-selecionado (mesmo ponto de partida de antes);
+  // o usuário pode desmarcar/marcar datas de qualquer mês a partir daí.
+  const mesInicial = mesAtual();
+  coDatasSelecionadas = new Set(datasDisponiveisConsolidado().filter(d => d.slice(0,7) === mesInicial));
   renderDiaChipsConsolidado();
 }
-// Dias distintos (1-31) em que houve ao menos um pedido de facilites
-// aprovado dentro do mês selecionado — só esses aparecem como opção, pra não
-// mostrar um filtro de 31 dias quando quase nenhum teve aprovação.
-function diasDisponiveisConsolidado(mes){
-  const dias = new Set();
+// Todas as datas exatas em que houve ao menos um pedido de facilites
+// aprovado, em ordem cronológica — só essas aparecem como opção.
+function datasDisponiveisConsolidado(){
+  const datas = new Set();
   pedidosState.pedidosFacilites.forEach(p => {
-    if (p.status === 'Aprovado' && p.mes === mes){
-      const d = diaAprovacao(p.dataAprovacao);
-      if (d) dias.add(d);
+    if (p.status === 'Aprovado'){
+      const iso = dataAprovacaoISO(p.dataAprovacao);
+      if (iso) datas.add(iso);
     }
   });
-  return [...dias].sort((a,b) => a - b);
+  return [...datas].sort();
 }
 function renderDiaChipsConsolidado(){
-  const mes = document.getElementById('co-mes').value;
-  const dias = diasDisponiveisConsolidado(mes);
-  // dias que ficaram selecionados mas não existem mais nesse mês não contam
-  coDiasSelecionados = new Set([...coDiasSelecionados].filter(d => dias.includes(d)));
+  const datas = datasDisponiveisConsolidado();
+  // datas que ficaram selecionadas mas não existem mais não contam
+  coDatasSelecionadas = new Set([...coDatasSelecionadas].filter(d => datas.includes(d)));
   const wrap = document.getElementById('co-dias');
-  if (!dias.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido aprovado nesse mês ainda</span>'; return; }
-  const todosAtivo = coDiasSelecionados.size === 0;
-  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-dia="">Todos</button>`;
-  html += dias.map(d => `<button type="button" class="day-toggle${coDiasSelecionados.has(d)?' active':''}" data-dia="${d}">${d}</button>`).join('');
+  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido de facilites aprovado ainda</span>'; return; }
+  const todosAtivo = coDatasSelecionadas.size === 0;
+  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
+  let grupoAtual = null;
+  datas.forEach(iso => {
+    const [ano, mesNum, dia] = iso.split('-').map(Number);
+    const chaveGrupo = ano + '-' + mesNum;
+    if (chaveGrupo !== grupoAtual){
+      grupoAtual = chaveGrupo;
+      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
+    }
+    html += `<button type="button" class="day-toggle${coDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
+  });
   wrap.innerHTML = html;
-  wrap.querySelectorAll('.day-toggle').forEach(btn => {
+  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const dia = btn.dataset.dia;
-      if (dia === ''){ coDiasSelecionados = new Set(); }
+      const iso = btn.dataset.data;
+      if (iso === ''){ coDatasSelecionadas = new Set(); }
       else{
-        const n = Number(dia);
-        if (coDiasSelecionados.has(n)) coDiasSelecionados.delete(n); else coDiasSelecionados.add(n);
+        if (coDatasSelecionadas.has(iso)) coDatasSelecionadas.delete(iso); else coDatasSelecionadas.add(iso);
       }
-      renderDiaChipsConsolidado();
       renderConsolidado();
     });
   });
 }
 function computeConsolidado(){
-  const mes = document.getElementById('co-mes').value;
   const itens = flatItensFacilites(true);
   return CATALOGO_FACILITES.map(item => {
-    const pedidos = itens.filter(p => p.mes === mes && p.produto === item.produto &&
-      (coDiasSelecionados.size === 0 || coDiasSelecionados.has(diaAprovacao(p.dataAprovacao))));
+    const pedidos = itens.filter(p => p.produto === item.produto &&
+      (coDatasSelecionadas.size === 0 || coDatasSelecionadas.has(dataAprovacaoISO(p.dataAprovacao))));
     const qtd = pedidos.reduce((s,p)=> s + Number(p.quantidade||0), 0);
     const nUnidades = new Set(pedidos.filter(p=>p.quantidade>0).map(p=>p.unidade)).size;
     const preco = Number(item.preco||0);
@@ -2468,6 +2480,7 @@ function ordenarPorFornecedor(rows){
   });
 }
 function renderConsolidado(){
+  renderDiaChipsConsolidado();
   const somentePedidos = document.getElementById('co-somente-pedidos').checked;
   let rows = computeConsolidado();
   if (somentePedidos) rows = rows.filter(r => r.qtd > 0);
@@ -2476,7 +2489,7 @@ function renderConsolidado(){
   document.getElementById('co-total-rs').textContent = fmtBRL(rows.reduce((s,r)=>s+r.total, 0));
 
   const tbody = document.querySelector('#co-tabela tbody');
-  if (!rows.length){ tbody.innerHTML = `<tr><td colspan="7"><div class="empty">Nenhum pedido de facilites ${coDiasSelecionados.size ? 'nesses dias' : 'nesse mês'} ainda.</div></td></tr>`; return; }
+  if (!rows.length){ tbody.innerHTML = `<tr><td colspan="7"><div class="empty">Nenhum pedido de facilites ${coDatasSelecionadas.size ? 'nessas datas' : 'ainda'}.</div></td></tr>`; return; }
 
   let html = '';
   let fornecedorAtual = null;
@@ -2499,10 +2512,9 @@ function renderConsolidado(){
 }
 
 function baixarConsolidadoCsv(){
-  const mes = document.getElementById('co-mes').value;
-  const diasSufixo = coDiasSelecionados.size ? '_dias-' + [...coDiasSelecionados].sort((a,b)=>a-b).join('-') : '';
+  const datasSufixo = coDatasSelecionadas.size ? '_' + [...coDatasSelecionadas].sort().join('_') : '_todas-as-datas';
   const rows = ordenarPorFornecedor(computeConsolidado().filter(r => r.qtd > 0));
-  if (!rows.length){ toast(`Não há pedido de facilites aprovado ${coDiasSelecionados.size ? 'nesses dias' : 'nesse mês'} ainda.`, 'error'); return; }
+  if (!rows.length){ toast(`Não há pedido de facilites aprovado ${coDatasSelecionadas.size ? 'nessas datas' : 'ainda'}.`, 'error'); return; }
   const header = ['FORNECEDOR','CATEGORIA','PRODUTO','PRECO_UNITARIO_REF','QTDE_TOTAL_A_COMPRAR','N_UNIDADES','TOTAL_RS_REF'];
   const lines = [header.join(';')];
   let fornecedorAtual = null, subtotalQtd = 0, subtotalRs = 0;
@@ -2515,7 +2527,7 @@ function baixarConsolidadoCsv(){
   fecharGrupo();
   lines.push(`Total geral;;;;${rows.reduce((s,r)=>s+r.qtd,0)};;${toBRNum(rows.reduce((s,r)=>s+r.total,0))}`);
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Consolidado_Facilites_PorFornecedor_${mes}${diasSufixo}.csv`, csv);
+  offerDownload(`Consolidado_Facilites_PorFornecedor${datasSufixo}.csv`, csv);
 }
 
 /* =========================== FACILITES: SEPARAÇÃO =========================== */
