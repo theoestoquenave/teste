@@ -2363,14 +2363,28 @@ var CORRELACAO_STOPWORDS = {};
  'aplicacao aplicaçao aplicação consulta retorno clinico clínico geral exame teste perfil sorologia avaliacao '+
  'avaliação protocolo vacinal plano wevets interno nave domiciliar sjc unidade unidades und unid volume '+
  'litro litros injetavel injetável oral gotas solucao solução suspensao suspensão comprimido comprimidos '+
- 'ampola ampolas frasco frascos caixa pacote cartela blister').split(' ').forEach(function(w){ CORRELACAO_STOPWORDS[w]=true; });
+ 'ampola ampolas frasco frascos caixa pacote cartela blister '+
+ // vacina/vacinas e as qualificações de espécie — pedido do usuário, 2026-09-01: "as vacinas também já
+ // estão correlacionadas?". Sem isso, "vacina" virava o próprio termo de busca (não é stopword por
+ // padrão) e, como quase todo item de vacina começa com essa palavra, a desambiguação por número
+ // entrava em ação e descartava vacinas sem dose numerada no nome (ex.: Giardia, Raiva, FELV, Múltipla
+ // MSD) — zerando a correlação delas. Removendo essas palavras genéricas, o termo de busca vira a
+ // doença/composição real (ex.: "giardia", "raiva"), como já acontece com "aplicação"/"vacinal" para as
+ // demais. Vacinas com dose numerada (V4/V5/V10) continuam desambiguadas normalmente pelo número.
+ 'vacina vacinas felina felino felinas felinos canina canino caninas caninos').split(' ').forEach(function(w){ CORRELACAO_STOPWORDS[w]=true; });
 
 // Tokens "significativos" de um nome: palavras de 4+ letras, sem stopword nem número puro — na
 // prática isola o nome do produto/princípio ativo (ex.: "dexametasona", "cytopoint", "bravecto"),
 // ignorando embalagem, dosagem em unidades e palavras genéricas de atendimento.
+// Exceção: código curto de variante tipo "v4"/"v5"/"v10" (comum em vacina) fica com só 2-3 letras,
+// mas é o único jeito de diferenciar vacinas que, sem a palavra "vacina", ficariam com o mesmo termo
+// (ex.: "V4 Quadrupla Felina" vs. "V5 Felina") — por isso passa mesmo abaixo do mínimo de 4 letras.
 function tokensSignificativos(nome){
   var raw = normStr(nome).match(/[a-z0-9]+/g) || [];
-  return raw.filter(function(t){ return t.length>=4 && !CORRELACAO_STOPWORDS[t] && !/^\d+$/.test(t); });
+  return raw.filter(function(t){
+    if(CORRELACAO_STOPWORDS[t] || /^\d+$/.test(t)) return false;
+    return t.length>=4 || /^v\d+$/.test(t);
+  });
 }
 function numerosNoNome(nome){ return normStr(nome).match(/\d+/g) || []; }
 
