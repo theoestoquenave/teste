@@ -345,10 +345,6 @@
           <select id="ap-unidade"><option value="">Todas</option></select>
         </div>
         <div class="field">
-          <label for="ap-mes">Mês</label>
-          <input type="month" id="ap-mes">
-        </div>
-        <div class="field">
           <label for="ap-status">Status</label>
           <select id="ap-status">
             <option value="Pendente" selected>Pendente</option>
@@ -358,6 +354,10 @@
           </select>
         </div>
         <button class="btn-approve" id="ap-aprovar-todos" style="margin-left:auto;">Aprovar todos os filtrados</button>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Datas de registro <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
+        <div class="day-toggle-row" id="ap-dias"></div>
       </div>
     </div>
     <div class="card">
@@ -373,7 +373,7 @@
     <div class="topbar">
       <div>
         <h1>Exportar para o fornecedor</h1>
-        <p>Essa tela gera as <strong>3 planilhas</strong> do pedido do mês: (1) o pedido do fornecedor principal (Hydra), unidade por unidade — monta a tabela no formato padrão dele (grupo, código, múltiplos por caixa, preço e total), com opção de baixar em CSV, e o botão <strong>"Salvar planilha do fornecedor no Drive"</strong> gera a planilha .xlsx oficial (o próprio arquivo-modelo do fornecedor, preenchido com esse pedido) direto no navegador e já salva numa pasta do seu Google Drive — sem precisar vir pedir aqui no chat (precisa do Google Drive conectado à sua conta); (2) o <strong>pedido de toalhas</strong> juntando todas as unidades num arquivo só, com a quantidade de cada uma; e (3) os <strong>outros itens</strong> de "Outro fornecedor" (escovas descartáveis, algodão etc.) também juntando todas as unidades, identificando o que cada uma pediu. As planilhas (2) e (3) usam o mês selecionado acima e juntam as 12 unidades de uma vez — não dependem da unidade escolhida no campo "Unidade" (esse campo vale só pra planilha (1), que é por unidade).</p>
+        <p>Essa tela gera as <strong>3 planilhas</strong> do pedido do período selecionado: (1) o pedido do fornecedor principal (Hydra), unidade por unidade — monta a tabela no formato padrão dele (grupo, código, múltiplos por caixa, preço e total), com opção de baixar em CSV, e o botão <strong>"Salvar planilha do fornecedor no Drive"</strong> gera a planilha .xlsx oficial (o próprio arquivo-modelo do fornecedor, preenchido com esse pedido) direto no navegador e já salva numa pasta do seu Google Drive — sem precisar vir pedir aqui no chat (precisa do Google Drive conectado à sua conta); (2) o <strong>pedido de toalhas</strong> juntando todas as unidades num arquivo só, com a quantidade de cada uma; e (3) os <strong>outros itens</strong> de "Outro fornecedor" (escovas descartáveis, algodão etc.) também juntando todas as unidades, identificando o que cada uma pediu. As planilhas (2) e (3) usam as datas selecionadas acima e juntam as 12 unidades de uma vez — não dependem da unidade escolhida no campo "Unidade" (esse campo vale só pra planilha (1), que é por unidade).</p>
       </div>
     </div>
     <div class="card">
@@ -383,10 +383,6 @@
           <select id="ex-unidade"></select>
         </div>
         <div class="field">
-          <label for="ex-mes">Mês</label>
-          <input type="month" id="ex-mes">
-        </div>
-        <div class="field">
           <label>Código no fornecedor</label>
           <div class="mono" id="ex-codigo" style="padding:8px 0; font-size:14px; font-weight:600;">—</div>
         </div>
@@ -394,6 +390,10 @@
           <input type="checkbox" id="ex-somente-pedidos" checked>
           <label for="ex-somente-pedidos">Mostrar só itens com pedido aprovado</label>
         </div>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Datas de aprovação <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
+        <div class="day-toggle-row" id="ex-dias"></div>
       </div>
     </div>
     <div class="card">
@@ -507,10 +507,6 @@
           <select id="apf-unidade"><option value="">Todas</option></select>
         </div>
         <div class="field">
-          <label for="apf-mes">Mês</label>
-          <input type="month" id="apf-mes">
-        </div>
-        <div class="field">
           <label for="apf-status">Status</label>
           <select id="apf-status">
             <option value="Pendente" selected>Pendente</option>
@@ -520,6 +516,10 @@
           </select>
         </div>
         <button class="btn-approve" id="apf-aprovar-todos" style="margin-left:auto;">Aprovar todos os filtrados</button>
+      </div>
+      <div class="field" style="margin-top:14px;">
+        <label>Datas de registro <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
+        <div class="day-toggle-row" id="apf-dias"></div>
       </div>
     </div>
     <div class="card">
@@ -633,15 +633,13 @@
     <div class="topbar">
       <div>
         <h1>Relatórios de gastos</h1>
-        <p>Total gasto no mês com pedidos aprovados, separado por Banho &amp; Tosa e Facilites, por unidade e somando todas — com a parte de Facilites também dividida por fornecedor.</p>
+        <p>Total gasto no período selecionado com pedidos aprovados, separado por Banho &amp; Tosa e Facilites, por unidade e somando todas — com a parte de Facilites também dividida por fornecedor.</p>
       </div>
     </div>
     <div class="card">
-      <div class="row">
-        <div class="field">
-          <label for="rel-mes">Mês</label>
-          <input type="month" id="rel-mes">
-        </div>
+      <div class="field">
+        <label>Datas de aprovação <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
+        <div class="day-toggle-row" id="rel-dias"></div>
       </div>
     </div>
 
@@ -1490,10 +1488,16 @@ function processarLinhasImportadas(rows){
 }
 
 /* =========================== APROVAÇÃO =========================== */
+// Datas de registro (ts) selecionadas no filtro da tela de Aprovações —
+// Banho & Tosa. Ao contrário do filtro de aprovação (Consolidado, Export,
+// Relatórios), usa a data de criação do pedido, já que a maioria dos
+// pedidos aqui ainda está Pendente (sem data de aprovação nenhuma).
+let apDatasSelecionadas = new Set();
+
 function setupAprovacao(){
   document.getElementById('ap-unidade').innerHTML = '<option value="">Todas</option>' +
     UNIDADES.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
-  ['ap-unidade','ap-mes','ap-status'].forEach(id => document.getElementById(id).addEventListener('input', renderAprovacao));
+  ['ap-unidade','ap-status'].forEach(id => document.getElementById(id).addEventListener('input', renderAprovacao));
   document.getElementById('ap-aprovar-todos').addEventListener('click', async () => {
     const pedidos = filteredPedidosBanho();
     const ids = pedidos.filter(p => p.status !== 'Aprovado').map(p => p.id);
@@ -1503,15 +1507,46 @@ function setupAprovacao(){
       return state;
     }, `${ids.length} pedido(s) aprovado(s).`);
   });
+  const mesInicial = mesAtual();
+  apDatasSelecionadas = new Set(datasDisponiveisPor(pedidosState.pedidosBanho, 'ts').filter(d => d.slice(0,7) === mesInicial));
+  renderDiaChipsAprovacao();
+}
+function renderDiaChipsAprovacao(){
+  const datas = datasDisponiveisPor(pedidosState.pedidosBanho, 'ts');
+  apDatasSelecionadas = new Set([...apDatasSelecionadas].filter(d => datas.includes(d)));
+  const wrap = document.getElementById('ap-dias');
+  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido registrado ainda</span>'; return; }
+  const todosAtivo = apDatasSelecionadas.size === 0;
+  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
+  let grupoAtual = null;
+  datas.forEach(iso => {
+    const [ano, mesNum, dia] = iso.split('-').map(Number);
+    const chaveGrupo = ano + '-' + mesNum;
+    if (chaveGrupo !== grupoAtual){
+      grupoAtual = chaveGrupo;
+      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
+    }
+    html += `<button type="button" class="day-toggle${apDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const iso = btn.dataset.data;
+      if (iso === ''){ apDatasSelecionadas = new Set(); }
+      else{
+        if (apDatasSelecionadas.has(iso)) apDatasSelecionadas.delete(iso); else apDatasSelecionadas.add(iso);
+      }
+      renderAprovacao();
+    });
+  });
 }
 
 function filteredPedidosBanho(){
   const unidade = document.getElementById('ap-unidade').value;
-  const mes = document.getElementById('ap-mes').value;
   const status = document.getElementById('ap-status').value;
   return pedidosState.pedidosBanho.filter(p =>
     (!unidade || p.unidade === unidade) &&
-    (!mes || p.mes === mes) &&
+    (apDatasSelecionadas.size === 0 || apDatasSelecionadas.has(dataAprovacaoISO(p.ts))) &&
     (!status || p.status === status)
   ).sort((a,b) => (a.atualizadoEm < b.atualizadoEm ? 1 : -1));
 }
@@ -1697,6 +1732,7 @@ function wireAprovacaoTbody(tbody, arrayKey, tipo){
 }
 
 function renderAprovacao(){
+  renderDiaChipsAprovacao();
   const tbody = document.querySelector('#ap-tabela tbody');
   const pedidos = filteredPedidosBanho();
   tbody.innerHTML = construirLinhasAprovacaoHtml(pedidos, 'banho');
@@ -1707,10 +1743,14 @@ function renderAprovacao(){
 }
 
 /* =========================== APROVAÇÃO — FACILITES =========================== */
+// Mesma lógica de apDatasSelecionadas, mas pra Aprovações — Facilites
+// (estado independente).
+let apfDatasSelecionadas = new Set();
+
 function setupAprovacaoFacilites(){
   document.getElementById('apf-unidade').innerHTML = '<option value="">Todas</option>' +
     UNIDADES.map(u => `<option value="${u.nome}">${u.nome}</option>`).join('');
-  ['apf-unidade','apf-mes','apf-status'].forEach(id => document.getElementById(id).addEventListener('input', renderAprovacaoFacilites));
+  ['apf-unidade','apf-status'].forEach(id => document.getElementById(id).addEventListener('input', renderAprovacaoFacilites));
   document.getElementById('apf-aprovar-todos').addEventListener('click', async () => {
     const pedidos = filteredPedidosFacilites();
     const ids = pedidos.filter(p => p.status !== 'Aprovado').map(p => p.id);
@@ -1720,20 +1760,52 @@ function setupAprovacaoFacilites(){
       return state;
     }, `${ids.length} pedido(s) aprovado(s).`);
   });
+  const mesInicial = mesAtual();
+  apfDatasSelecionadas = new Set(datasDisponiveisPor(pedidosState.pedidosFacilites, 'ts').filter(d => d.slice(0,7) === mesInicial));
+  renderDiaChipsAprovacaoFacilites();
+}
+function renderDiaChipsAprovacaoFacilites(){
+  const datas = datasDisponiveisPor(pedidosState.pedidosFacilites, 'ts');
+  apfDatasSelecionadas = new Set([...apfDatasSelecionadas].filter(d => datas.includes(d)));
+  const wrap = document.getElementById('apf-dias');
+  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido registrado ainda</span>'; return; }
+  const todosAtivo = apfDatasSelecionadas.size === 0;
+  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
+  let grupoAtual = null;
+  datas.forEach(iso => {
+    const [ano, mesNum, dia] = iso.split('-').map(Number);
+    const chaveGrupo = ano + '-' + mesNum;
+    if (chaveGrupo !== grupoAtual){
+      grupoAtual = chaveGrupo;
+      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
+    }
+    html += `<button type="button" class="day-toggle${apfDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const iso = btn.dataset.data;
+      if (iso === ''){ apfDatasSelecionadas = new Set(); }
+      else{
+        if (apfDatasSelecionadas.has(iso)) apfDatasSelecionadas.delete(iso); else apfDatasSelecionadas.add(iso);
+      }
+      renderAprovacaoFacilites();
+    });
+  });
 }
 
 function filteredPedidosFacilites(){
   const unidade = document.getElementById('apf-unidade').value;
-  const mes = document.getElementById('apf-mes').value;
   const status = document.getElementById('apf-status').value;
   return pedidosState.pedidosFacilites.filter(p =>
     (!unidade || p.unidade === unidade) &&
-    (!mes || p.mes === mes) &&
+    (apfDatasSelecionadas.size === 0 || apfDatasSelecionadas.has(dataAprovacaoISO(p.ts))) &&
     (!status || p.status === status)
   ).sort((a,b) => (a.atualizadoEm < b.atualizadoEm ? 1 : -1));
 }
 
 function renderAprovacaoFacilites(){
+  renderDiaChipsAprovacaoFacilites();
   const tbody = document.querySelector('#apf-tabela tbody');
   const pedidos = filteredPedidosFacilites();
   tbody.innerHTML = construirLinhasAprovacaoHtml(pedidos, 'facilites');
@@ -1745,22 +1817,57 @@ function renderAprovacaoFacilites(){
 }
 
 /* =========================== EXPORT FORNECEDOR =========================== */
+// Datas de aprovação selecionadas no filtro dessa tela — mesmo padrão do
+// Consolidado/Separação (Facilites), aqui sobre pedidosBanho.
+let exDatasSelecionadas = new Set();
+
 function setupExport(){
   fillSelect(document.getElementById('ex-unidade'), UNIDADES.map(u=>u.nome));
-  document.getElementById('ex-mes').value = mesAtual();
-  ['ex-unidade','ex-mes','ex-somente-pedidos'].forEach(id => document.getElementById(id).addEventListener('input', renderExport));
+  ['ex-unidade','ex-somente-pedidos'].forEach(id => document.getElementById(id).addEventListener('input', renderExport));
   document.getElementById('ex-baixar-completo').addEventListener('click', () => baixarExportCompleto());
   document.getElementById('ex-baixar-importacao').addEventListener('click', () => baixarExportImportacao());
   document.getElementById('ex-baixar-drive').addEventListener('click', () => exportarPlanilhaDrive());
   document.getElementById('exo-baixar').addEventListener('click', () => baixarExportOutro());
   document.getElementById('ex-toalhas-baixar').addEventListener('click', () => baixarExportToalhasCsv());
   document.getElementById('ex-outros-baixar').addEventListener('click', () => baixarExportOutrosTodasUnidadesCsv());
+  const mesInicial = mesAtual();
+  exDatasSelecionadas = new Set(datasDisponiveisPor(pedidosState.pedidosBanho, 'dataAprovacao', p => p.status === 'Aprovado').filter(d => d.slice(0,7) === mesInicial));
+  renderDiaChipsExport();
+}
+function renderDiaChipsExport(){
+  const datas = datasDisponiveisPor(pedidosState.pedidosBanho, 'dataAprovacao', p => p.status === 'Aprovado');
+  exDatasSelecionadas = new Set([...exDatasSelecionadas].filter(d => datas.includes(d)));
+  const wrap = document.getElementById('ex-dias');
+  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido de banho & tosa aprovado ainda</span>'; return; }
+  const todosAtivo = exDatasSelecionadas.size === 0;
+  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
+  let grupoAtual = null;
+  datas.forEach(iso => {
+    const [ano, mesNum, dia] = iso.split('-').map(Number);
+    const chaveGrupo = ano + '-' + mesNum;
+    if (chaveGrupo !== grupoAtual){
+      grupoAtual = chaveGrupo;
+      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
+    }
+    html += `<button type="button" class="day-toggle${exDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const iso = btn.dataset.data;
+      if (iso === ''){ exDatasSelecionadas = new Set(); }
+      else{
+        if (exDatasSelecionadas.has(iso)) exDatasSelecionadas.delete(iso); else exDatasSelecionadas.add(iso);
+      }
+      renderExport();
+    });
+  });
 }
 
 function pedidoAprovadoExport(){
   const unidade = document.getElementById('ex-unidade').value;
-  const mes = document.getElementById('ex-mes').value;
-  return pedidosState.pedidosBanho.find(p => p.unidade === unidade && p.mes === mes && p.status === 'Aprovado');
+  return pedidosState.pedidosBanho.find(p => p.unidade === unidade && p.status === 'Aprovado' &&
+    (exDatasSelecionadas.size === 0 || exDatasSelecionadas.has(dataAprovacaoISO(p.dataAprovacao))));
 }
 
 // Só itens com código confirmado no catálogo do fornecedor principal E não
@@ -1793,10 +1900,11 @@ function computeExportRowsOutro(){
   });
 }
 
-// Planilha (2): pedido de toalhas juntando todas as unidades, pro mês selecionado.
-// Reaproveita computeToalhasPorUnidade (mesma lógica da tela de Relatórios de gastos).
-function renderExportToalhas(mes){
-  const toalhas = computeToalhasPorUnidade(mes);
+// Planilha (2): pedido de toalhas juntando todas as unidades, pro período
+// selecionado. Reaproveita computeToalhasPorUnidade (mesma função da tela
+// de Relatórios de gastos, cada uma com seu próprio filtro de datas).
+function renderExportToalhas(){
+  const toalhas = computeToalhasPorUnidade(exDatasSelecionadas);
   const totalQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
   const totalRs = toalhas.reduce((s,r)=>s+r.total, 0);
   document.getElementById('ex-toalhas-total-qtd').textContent = totalQtd;
@@ -1805,18 +1913,19 @@ function renderExportToalhas(mes){
   tb.innerHTML = totalQtd > 0
     ? toalhas.map(r => `<tr class="${r.qtd===0?'zero-row':''}"><td>${r.unidade}</td><td class="num mono">${r.qtd}</td><td class="num mono">${fmtBRL(r.total)}</td></tr>`).join('')
       + `<tr style="font-weight:600;"><td>Total (todas as unidades)</td><td class="num mono">${totalQtd}</td><td class="num mono">${fmtBRL(totalRs)}</td></tr>`
-    : '<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado nesse mês ainda.</div></td></tr>';
+    : `<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado ${exDatasSelecionadas.size?'nessas datas':'ainda'}.</div></td></tr>`;
 }
 
 // Planilha (3): os demais itens de "Outro fornecedor" (exceto o rolo de toalha,
 // que já tem planilha própria), juntando todas as unidades e identificando
 // quanto cada uma pediu de cada item.
-function computeOutrosItensTodasUnidades(mes){
+function computeOutrosItensTodasUnidades(){
   const itensCatalogo = CATALOGO_BANHO.filter(c => c.outroFornecedor && c.produto !== TOALHA_PRODUTO_NOME);
   return itensCatalogo.map(item => {
     const preco = Number(item.preco||0);
     const porUnidade = UNIDADES.map(u => {
-      const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.mes === mes && p.status === 'Aprovado');
+      const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.status === 'Aprovado' &&
+        (exDatasSelecionadas.size === 0 || exDatasSelecionadas.has(dataAprovacaoISO(p.dataAprovacao))));
       const it = pedido ? (pedido.itens||[]).find(i => i.produto === item.produto) : null;
       return it ? Number(it.quantidade||0) : 0;
     });
@@ -1825,8 +1934,8 @@ function computeOutrosItensTodasUnidades(mes){
   });
 }
 
-function renderExportOutrosTodasUnidades(mes){
-  const linhas = computeOutrosItensTodasUnidades(mes);
+function renderExportOutrosTodasUnidades(){
+  const linhas = computeOutrosItensTodasUnidades();
   const cabecalho = document.getElementById('ex-outros-cabecalho');
   cabecalho.innerHTML = '<th>Produto</th><th class="num">Preço Un. ref.</th>'
     + UNIDADES.map(u => `<th class="num">${nomeUnidadeCurto(u.nome)}</th>`).join('')
@@ -1840,45 +1949,46 @@ function renderExportOutrosTodasUnidades(mes){
         ${l.porUnidade.map(q => `<td class="num mono">${q||'-'}</td>`).join('')}
         <td class="num mono" style="font-weight:600;">${l.totalQtd}</td><td class="num mono">${fmtBRL(l.totalRs)}</td>
       </tr>`).join('')
-    : `<tr><td colspan="${3 + UNIDADES.length}"><div class="empty">Nenhum desses itens foi aprovado em nenhuma unidade nesse mês ainda.</div></td></tr>`;
+    : `<tr><td colspan="${3 + UNIDADES.length}"><div class="empty">Nenhum desses itens foi aprovado em nenhuma unidade ${exDatasSelecionadas.size?'nessas datas':'ainda'}.</div></td></tr>`;
 
   document.getElementById('ex-outros-total-rs').textContent = fmtBRL(linhas.reduce((s,l)=>s+l.totalRs, 0));
 }
 
 function baixarExportToalhasCsv(){
-  const mes = document.getElementById('ex-mes').value;
-  const toalhas = computeToalhasPorUnidade(mes);
+  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
+  const toalhas = computeToalhasPorUnidade(exDatasSelecionadas);
   const totalQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
-  if (!totalQtd){ toast('Não há pedido de toalhas aprovado nesse mês ainda.', 'error'); return; }
+  if (!totalQtd){ toast(`Não há pedido de toalhas aprovado ${exDatasSelecionadas.size?'nessas datas':'ainda'}.`, 'error'); return; }
   const cat = findProdutoBanho(TOALHA_PRODUTO_NOME);
   const preco = cat ? Number(cat.preco||0) : 0;
   const totalRs = toalhas.reduce((s,r)=>s+r.total, 0);
-  const lines = [`PEDIDO DE TOALHAS;${nomeMesPt(mes)}/${mes.split('-')[0]}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
+  const lines = [`PEDIDO DE TOALHAS;${rotuloPeriodo(exDatasSelecionadas)}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
   toalhas.forEach(r => lines.push([r.unidade, r.qtd, toBRNum(r.total)].join(';')));
   lines.push('');
   lines.push(`Total de toalhas=;${totalQtd}`);
   lines.push(`TOTAL=;;${toBRNum(totalRs)}`);
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Pedido_Toalhas_${mes}.csv`, csv);
+  offerDownload(`Pedido_Toalhas${datasSufixo}.csv`, csv);
 }
 
 function baixarExportOutrosTodasUnidadesCsv(){
-  const mes = document.getElementById('ex-mes').value;
-  const linhas = computeOutrosItensTodasUnidades(mes).filter(l => l.totalQtd > 0);
-  if (!linhas.length){ toast('Não há pedido desses itens aprovado nesse mês ainda.', 'error'); return; }
+  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
+  const linhas = computeOutrosItensTodasUnidades().filter(l => l.totalQtd > 0);
+  if (!linhas.length){ toast(`Não há pedido desses itens aprovado ${exDatasSelecionadas.size?'nessas datas':'ainda'}.`, 'error'); return; }
   const header = ['PRODUTO','PRECO_UNITARIO_REF', ...UNIDADES.map(u => nomeUnidadeCurto(u.nome).toUpperCase()), 'TOTAL_QTDE', 'TOTAL_RS_REF'];
   const lines = [header.join(';')];
   linhas.forEach(l => lines.push([l.produto, l.preco?toBRNum(l.preco):'', ...l.porUnidade, l.totalQtd, toBRNum(l.totalRs)].join(';')));
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Export_OutrosItens_TodasUnidades_${mes}.csv`, csv);
+  offerDownload(`Export_OutrosItens_TodasUnidades${datasSufixo}.csv`, csv);
 }
 
 function renderExport(){
+  renderDiaChipsExport();
   const somentePedidos = document.getElementById('ex-somente-pedidos').checked;
   let rows = computeExportRows();
   if (somentePedidos) rows = rows.filter(r => r.qtd > 0);
   const tbody = document.querySelector('#ex-tabela tbody');
-  if (!rows.length){ tbody.innerHTML = '<tr><td colspan="9"><div class="empty">Nenhum item aprovado para essa unidade/mês ainda.</div></td></tr>'; }
+  if (!rows.length){ tbody.innerHTML = `<tr><td colspan="9"><div class="empty">Nenhum item aprovado para essa unidade ${exDatasSelecionadas.size?'nessas datas':'ainda'}.</div></td></tr>`; }
   else tbody.innerHTML = rows.map(r => `
     <tr class="${r.qtd===0?'zero-row':''}">
       <td>${r.grupo||'-'}</td><td class="mono">${r.ean}</td><td>${r.produto}</td><td>${r.linha||'-'}</td>
@@ -1906,9 +2016,8 @@ function renderExport(){
   document.getElementById('exo-total-itens').textContent = allOutro.filter(r=>r.qtd>0).length;
   document.getElementById('exo-total-rs').textContent = fmtBRL(allOutro.reduce((s,r)=>s+r.total,0));
 
-  const mes = document.getElementById('ex-mes').value || mesAtual();
-  renderExportToalhas(mes);
-  renderExportOutrosTodasUnidades(mes);
+  renderExportToalhas();
+  renderExportOutrosTodasUnidades();
 }
 
 function toBRNum(n, dec){ return Number(n||0).toFixed(dec==null?2:dec).replace('.', ','); }
@@ -1927,38 +2036,38 @@ async function offerDownload(filename, content){
 
 function baixarExportCompleto(){
   const unidade = document.getElementById('ex-unidade').value;
-  const mes = document.getElementById('ex-mes').value;
+  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
   const rows = computeExportRows().filter(r => r.qtd > 0);
   if (!rows.length){ toast('Não há itens aprovados pra exportar ainda.', 'error'); return; }
   const header = ['GRUPO','CODIGO','PRODUTO','LINHA','MULTIPLOS_POR_CAIXA','PRECO_UNITARIO','QTDE_EM_UN','QTDE_DE_CAIXAS','TOTAL_RS'];
   const lines = [header.join(';')];
   rows.forEach(r => lines.push([r.grupo,r.ean,r.produto,r.linha,r.mult,toBRNum(r.preco),r.qtd,toBRNum(r.caixas,2),toBRNum(r.total)].join(';')));
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Export_${unidade.replace(/\s+/g,'')}_${mes}.csv`, csv);
+  offerDownload(`Export_${unidade.replace(/\s+/g,'')}${datasSufixo}.csv`, csv);
 }
 
 function baixarExportImportacao(){
   const unidade = document.getElementById('ex-unidade').value;
-  const mes = document.getElementById('ex-mes').value;
+  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
   const codigo = unidadeCodigo(unidade);
   const rows = computeExportRows().filter(r => r.qtd > 0);
   if (!rows.length){ toast('Não há itens aprovados pra exportar ainda.', 'error'); return; }
   const lines = [`Codigo_Cliente;${codigo}`, 'Codigo;Quantidade'];
   rows.forEach(r => lines.push(`${r.ean};${r.qtd}`));
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Importacao_${unidade.replace(/\s+/g,'')}_${mes}.csv`, csv);
+  offerDownload(`Importacao_${unidade.replace(/\s+/g,'')}${datasSufixo}.csv`, csv);
 }
 
 function baixarExportOutro(){
   const unidade = document.getElementById('ex-unidade').value;
-  const mes = document.getElementById('ex-mes').value;
+  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
   const rows = computeExportRowsOutro().filter(r => r.qtd > 0);
   if (!rows.length){ toast('Não há itens de outro fornecedor aprovados pra exportar ainda.', 'error'); return; }
   const header = ['PRODUTO','FORNECEDOR','PRECO_UNITARIO_REF','QTDE','TOTAL_RS_REF'];
   const lines = [header.join(';')];
   rows.forEach(r => lines.push([r.produto, r.fornecedor||'', r.preco?toBRNum(r.preco):'', r.qtd, toBRNum(r.total)].join(';')));
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Export_OutroFornecedor_${unidade.replace(/\s+/g,'')}_${mes}.csv`, csv);
+  offerDownload(`Export_OutroFornecedor_${unidade.replace(/\s+/g,'')}${datasSufixo}.csv`, csv);
 }
 
 /* =========================== PLANILHA OFICIAL DO FORNECEDOR (.xlsx) — GERAÇÃO NO NAVEGADOR =========================== *
@@ -2319,8 +2428,9 @@ async function exportarPlanilhaDrive(){
   const btn = document.getElementById('ex-baixar-drive');
   const statusEl = document.getElementById('ex-drive-status');
   const unidade = document.getElementById('ex-unidade').value;
-  const mes = document.getElementById('ex-mes').value;
-  if (!unidade || !mes){ toast('Escolha unidade e mês primeiro.', 'error'); return; }
+  const pedido = pedidoAprovadoExport();
+  const mes = pedido ? pedido.mes : null;
+  if (!unidade || !mes){ toast('Escolha a unidade e um pedido aprovado primeiro.', 'error'); return; }
 
   const itensPedido = computeExportRows().filter(r => r.qtd > 0).map(r => ({ ean: r.ean, quantidade: r.qtd }));
   if (!itensPedido.length){ toast('Não há itens aprovados pra exportar ainda.', 'error'); return; }
@@ -2420,15 +2530,32 @@ function setupConsolidado(){
 }
 // Todas as datas exatas em que houve ao menos um pedido de facilites
 // aprovado, em ordem cronológica — só essas aparecem como opção.
-function datasAprovacaoFacilitesDisponiveis(){
+function datasAprovacaoFacilitesDisponiveis(){ return datasDisponiveisPor(pedidosState.pedidosFacilites, 'dataAprovacao', p => p.status === 'Aprovado'); }
+// Datas distintas (YYYY-MM-DD) tiradas de um campo de data de uma lista de
+// pedidos — genérico, usado em todos os filtros de "Datas de ..." do painel
+// (aprovação, registro), com um filtro opcional (ex.: só status Aprovado).
+function datasDisponiveisPor(pedidos, campo, filtro){
   const datas = new Set();
-  pedidosState.pedidosFacilites.forEach(p => {
-    if (p.status === 'Aprovado'){
-      const iso = dataAprovacaoISO(p.dataAprovacao);
-      if (iso) datas.add(iso);
-    }
+  pedidos.forEach(p => {
+    if (filtro && !filtro(p)) return;
+    const iso = dataAprovacaoISO(p[campo]);
+    if (iso) datas.add(iso);
   });
   return [...datas].sort();
+}
+// Texto legível (dd/mm/aaaa, separadas por vírgula) das datas selecionadas —
+// usado nos cabeçalhos de CSV. "todas as datas" quando nada está marcado.
+function rotuloPeriodo(datasSelecionadas){
+  if (!datasSelecionadas.size) return 'todas as datas';
+  return [...datasSelecionadas].sort().map(iso => {
+    const [ano, mes, dia] = iso.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }).join(', ');
+}
+// Sufixo de nome de arquivo com as datas selecionadas — mesmo padrão usado
+// no Consolidado/Separação, pra manter os nomes de CSV consistentes.
+function sufixoArquivoDatas(datasSelecionadas){
+  return datasSelecionadas.size ? '_' + [...datasSelecionadas].sort().join('_') : '_todas-as-datas';
 }
 function renderDiaChipsConsolidado(){
   const datas = datasAprovacaoFacilitesDisponiveis();
@@ -2655,27 +2782,67 @@ function renderHistorico(){
    Itens de Facilites sem preço/fornecedor cadastrado (ver aviso no Catálogo de
    produtos) contam R$0 no total e caem no grupo "Sem fornecedor definido" na
    tabela por fornecedor — pra não esconder a lacuna dentro de um número só. */
+// Datas de aprovação selecionadas nessa tela — cobre pedidosBanho e
+// pedidosFacilites juntos (a lista de datas disponíveis é a união dos dois).
+let relDatasSelecionadas = new Set();
+
+function datasAprovacaoRelatoriosDisponiveis(){
+  const datasBanho = datasDisponiveisPor(pedidosState.pedidosBanho, 'dataAprovacao', p => p.status === 'Aprovado');
+  const datasFacilites = datasDisponiveisPor(pedidosState.pedidosFacilites, 'dataAprovacao', p => p.status === 'Aprovado');
+  return [...new Set([...datasBanho, ...datasFacilites])].sort();
+}
+
 function setupRelatorios(){
-  document.getElementById('rel-mes').value = mesAtual();
-  document.getElementById('rel-mes').addEventListener('input', renderRelatorios);
   document.getElementById('rel-toalhas-baixar').addEventListener('click', baixarPedidoToalhasCsv);
+  const mesInicial = mesAtual();
+  relDatasSelecionadas = new Set(datasAprovacaoRelatoriosDisponiveis().filter(d => d.slice(0,7) === mesInicial));
+  renderDiaChipsRelatorios();
+}
+function renderDiaChipsRelatorios(){
+  const datas = datasAprovacaoRelatoriosDisponiveis();
+  relDatasSelecionadas = new Set([...relDatasSelecionadas].filter(d => datas.includes(d)));
+  const wrap = document.getElementById('rel-dias');
+  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido aprovado ainda</span>'; return; }
+  const todosAtivo = relDatasSelecionadas.size === 0;
+  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
+  let grupoAtual = null;
+  datas.forEach(iso => {
+    const [ano, mesNum, dia] = iso.split('-').map(Number);
+    const chaveGrupo = ano + '-' + mesNum;
+    if (chaveGrupo !== grupoAtual){
+      grupoAtual = chaveGrupo;
+      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
+    }
+    html += `<button type="button" class="day-toggle${relDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
+  });
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const iso = btn.dataset.data;
+      if (iso === ''){ relDatasSelecionadas = new Set(); }
+      else{
+        if (relDatasSelecionadas.has(iso)) relDatasSelecionadas.delete(iso); else relDatasSelecionadas.add(iso);
+      }
+      renderRelatorios();
+    });
+  });
 }
 
 function baixarPedidoToalhasCsv(){
-  const mes = document.getElementById('rel-mes').value || mesAtual();
-  const toalhas = computeToalhasPorUnidade(mes);
+  const datasSufixo = sufixoArquivoDatas(relDatasSelecionadas);
+  const toalhas = computeToalhasPorUnidade(relDatasSelecionadas);
   const totalQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
-  if (!totalQtd){ toast('Não há pedido de toalhas aprovado nesse mês ainda.', 'error'); return; }
+  if (!totalQtd){ toast(`Não há pedido de toalhas aprovado ${relDatasSelecionadas.size?'nessas datas':'ainda'}.`, 'error'); return; }
   const cat = findProdutoBanho(TOALHA_PRODUTO_NOME);
   const preco = cat ? Number(cat.preco||0) : 0;
   const totalRs = toalhas.reduce((s,r)=>s+r.total, 0);
-  const lines = [`PEDIDO DE TOALHAS;${nomeMesPt(mes)}/${mes.split('-')[0]}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
+  const lines = [`PEDIDO DE TOALHAS;${rotuloPeriodo(relDatasSelecionadas)}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
   toalhas.forEach(r => lines.push([r.unidade, r.qtd, toBRNum(r.total)].join(';')));
   lines.push('');
   lines.push(`Total de toalhas=;${totalQtd}`);
   lines.push(`TOTAL=;;${toBRNum(totalRs)}`);
   const csv = '﻿' + lines.join('\r\n');
-  offerDownload(`Pedido_Toalhas_${mes}.csv`, csv);
+  offerDownload(`Pedido_Toalhas${datasSufixo}.csv`, csv);
 }
 
 function valorItemBanho(it){
@@ -2687,36 +2854,42 @@ function valorItemFacilites(it){
   return Number(it.quantidade||0) * (cat ? Number(cat.preco||0) : 0);
 }
 
-function computeGastoBanhoPorUnidade(mes){
+function pedidoNoFiltroDeDatas(pedido, datasSelecionadas){
+  return datasSelecionadas.size === 0 || datasSelecionadas.has(dataAprovacaoISO(pedido.dataAprovacao));
+}
+
+function computeGastoBanhoPorUnidade(datasSelecionadas){
   return UNIDADES.map(u => {
-    const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.mes === mes && p.status === 'Aprovado');
+    const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.status === 'Aprovado' && pedidoNoFiltroDeDatas(p, datasSelecionadas));
     const total = pedido ? pedido.itens.reduce((s,it) => s + valorItemBanho(it), 0) : 0;
     return { unidade: u.nome, total };
   });
 }
-function computeGastoFacilitesPorUnidade(mes){
+function computeGastoFacilitesPorUnidade(datasSelecionadas){
   return UNIDADES.map(u => {
-    const pedido = pedidosState.pedidosFacilites.find(p => p.unidade === u.nome && p.mes === mes && p.status === 'Aprovado');
+    const pedido = pedidosState.pedidosFacilites.find(p => p.unidade === u.nome && p.status === 'Aprovado' && pedidoNoFiltroDeDatas(p, datasSelecionadas));
     const total = pedido ? pedido.itens.reduce((s,it) => s + valorItemFacilites(it), 0) : 0;
     return { unidade: u.nome, total };
   });
 }
 const TOALHA_PRODUTO_NOME = 'Rolo de toalha descartável (100UNIDADES)';
-function computeToalhasPorUnidade(mes){
+// Compartilhada com a tela de Exportar para o fornecedor — cada uma passa
+// seu próprio filtro de datas (exDatasSelecionadas / relDatasSelecionadas).
+function computeToalhasPorUnidade(datasSelecionadas){
   const cat = findProdutoBanho(TOALHA_PRODUTO_NOME);
   const preco = cat ? Number(cat.preco||0) : 0;
   return UNIDADES.map(u => {
-    const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.mes === mes && p.status === 'Aprovado');
+    const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.status === 'Aprovado' && pedidoNoFiltroDeDatas(p, datasSelecionadas));
     const item = pedido ? (pedido.itens||[]).find(it => it.produto === TOALHA_PRODUTO_NOME) : null;
     const qtd = item ? Number(item.quantidade||0) : 0;
     return { unidade: u.nome, qtd, total: qtd * preco };
   });
 }
 
-function computeGastoFacilitesPorFornecedor(mes){
+function computeGastoFacilitesPorFornecedor(datasSelecionadas){
   const totais = {};
   pedidosState.pedidosFacilites.forEach(p => {
-    if (p.mes !== mes || p.status !== 'Aprovado') return;
+    if (p.status !== 'Aprovado' || !pedidoNoFiltroDeDatas(p, datasSelecionadas)) return;
     (p.itens||[]).forEach(it => {
       const cat = findProdutoFacilitesCatalogo(it.produto);
       const forn = (cat && cat.fornecedor) ? cat.fornecedor : 'Sem fornecedor definido';
@@ -2727,27 +2900,28 @@ function computeGastoFacilitesPorFornecedor(mes){
 }
 
 function renderRelatorios(){
-  const mes = document.getElementById('rel-mes').value || mesAtual();
+  renderDiaChipsRelatorios();
+  const semPedidoTexto = relDatasSelecionadas.size ? 'nessas datas' : 'ainda';
 
-  const banho = computeGastoBanhoPorUnidade(mes);
+  const banho = computeGastoBanhoPorUnidade(relDatasSelecionadas);
   const totalBanho = banho.reduce((s,r)=>s+r.total, 0);
   document.getElementById('rel-banho-total').textContent = fmtBRL(totalBanho);
   const tbBanho = document.querySelector('#rel-banho-tabela tbody');
   tbBanho.innerHTML = totalBanho > 0
     ? banho.map(r => `<tr class="${r.total===0?'zero-row':''}"><td>${r.unidade}</td><td class="num mono">${fmtBRL(r.total)}</td></tr>`).join('')
       + `<tr style="font-weight:600;"><td>Total (todas as unidades)</td><td class="num mono">${fmtBRL(totalBanho)}</td></tr>`
-    : '<tr><td colspan="2"><div class="empty">Nenhum pedido de Banho &amp; Tosa aprovado nesse mês ainda.</div></td></tr>';
+    : `<tr><td colspan="2"><div class="empty">Nenhum pedido de Banho &amp; Tosa aprovado ${semPedidoTexto}.</div></td></tr>`;
 
-  const facilites = computeGastoFacilitesPorUnidade(mes);
+  const facilites = computeGastoFacilitesPorUnidade(relDatasSelecionadas);
   const totalFacilites = facilites.reduce((s,r)=>s+r.total, 0);
   document.getElementById('rel-facilites-total').textContent = fmtBRL(totalFacilites);
   const tbFac = document.querySelector('#rel-facilites-tabela tbody');
   tbFac.innerHTML = totalFacilites > 0
     ? facilites.map(r => `<tr class="${r.total===0?'zero-row':''}"><td>${r.unidade}</td><td class="num mono">${fmtBRL(r.total)}</td></tr>`).join('')
       + `<tr style="font-weight:600;"><td>Total (todas as unidades)</td><td class="num mono">${fmtBRL(totalFacilites)}</td></tr>`
-    : '<tr><td colspan="2"><div class="empty">Nenhum pedido de Facilites aprovado nesse mês ainda.</div></td></tr>';
+    : `<tr><td colspan="2"><div class="empty">Nenhum pedido de Facilites aprovado ${semPedidoTexto}.</div></td></tr>`;
 
-  const porFornecedor = computeGastoFacilitesPorFornecedor(mes);
+  const porFornecedor = computeGastoFacilitesPorFornecedor(relDatasSelecionadas);
   const fornecedoresOrdenados = Object.keys(porFornecedor).sort((a,b) => {
     if (a === 'Sem fornecedor definido') return 1;
     if (b === 'Sem fornecedor definido') return -1;
@@ -2756,9 +2930,9 @@ function renderRelatorios(){
   const tbForn = document.querySelector('#rel-fornecedor-tabela tbody');
   tbForn.innerHTML = fornecedoresOrdenados.length
     ? fornecedoresOrdenados.map(f => `<tr class="${f==='Sem fornecedor definido'?'zero-row':''}"><td>${f}</td><td class="num mono">${fmtBRL(porFornecedor[f])}</td></tr>`).join('')
-    : '<tr><td colspan="2"><div class="empty">Nenhum pedido de Facilites aprovado nesse mês ainda.</div></td></tr>';
+    : `<tr><td colspan="2"><div class="empty">Nenhum pedido de Facilites aprovado ${semPedidoTexto}.</div></td></tr>`;
 
-  const toalhas = computeToalhasPorUnidade(mes);
+  const toalhas = computeToalhasPorUnidade(relDatasSelecionadas);
   const totalToalhasQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
   const totalToalhasRs = toalhas.reduce((s,r)=>s+r.total, 0);
   document.getElementById('rel-toalhas-total-qtd').textContent = totalToalhasQtd;
@@ -2767,7 +2941,7 @@ function renderRelatorios(){
   tbToalhas.innerHTML = totalToalhasQtd > 0
     ? toalhas.map(r => `<tr class="${r.qtd===0?'zero-row':''}"><td>${r.unidade}</td><td class="num mono">${r.qtd}</td><td class="num mono">${fmtBRL(r.total)}</td></tr>`).join('')
       + `<tr style="font-weight:600;"><td>Total (todas as unidades)</td><td class="num mono">${totalToalhasQtd}</td><td class="num mono">${fmtBRL(totalToalhasRs)}</td></tr>`
-    : '<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado nesse mês ainda.</div></td></tr>';
+    : `<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado ${semPedidoTexto}.</div></td></tr>`;
 
   const geral = UNIDADES.map((u,i) => ({ unidade: u.nome, banho: banho[i].total, facilites: facilites[i].total, total: banho[i].total + facilites[i].total }));
   const totalGeral = totalBanho + totalFacilites;
@@ -2776,7 +2950,7 @@ function renderRelatorios(){
   tbGeral.innerHTML = totalGeral > 0
     ? geral.map(r => `<tr class="${r.total===0?'zero-row':''}"><td>${r.unidade}</td><td class="num mono">${fmtBRL(r.banho)}</td><td class="num mono">${fmtBRL(r.facilites)}</td><td class="num mono" style="font-weight:600;">${fmtBRL(r.total)}</td></tr>`).join('')
       + `<tr style="font-weight:600;"><td>Total geral</td><td class="num mono">${fmtBRL(totalBanho)}</td><td class="num mono">${fmtBRL(totalFacilites)}</td><td class="num mono">${fmtBRL(totalGeral)}</td></tr>`
-    : '<tr><td colspan="4"><div class="empty">Nenhum pedido aprovado nesse mês ainda.</div></td></tr>';
+    : `<tr><td colspan="4"><div class="empty">Nenhum pedido aprovado ${semPedidoTexto}.</div></td></tr>`;
 }
 
 /* =========================== RENDER GERAL =========================== */
