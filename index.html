@@ -108,6 +108,8 @@
   .btn-primary:hover{ background:var(--accent-strong); border-color:var(--accent-strong); }
   .btn-ghost{ border-color:transparent; background:transparent; }
   .btn-ghost:hover{ background:var(--surface-3); }
+  .btn-danger{ background:var(--critical); border-color:var(--critical); color:#fff; }
+  .btn-danger:hover{ filter:brightness(0.92); }
   .btn-sm{ padding:5px 10px; font-size:12.5px; border-radius:7px; }
   .btn-icon{ padding:6px; width:30px; height:30px; justify-content:center; }
   .btn[disabled]{ opacity:.45; cursor:not-allowed; }
@@ -329,6 +331,7 @@
         <button class="btn" id="btn-importar-nfe">Importar XML de NF</button>
         <button class="btn" id="btn-importar-pedido">Importar pedido (planilha)</button>
         <button class="btn" id="btn-exportar-posicao">Gerar posição de estoque</button>
+        <button class="btn write-action" id="btn-novo-produto">Novo produto</button>
         <button class="btn btn-primary" id="btn-registrar-compra">Registrar compra</button>
       </div>
     </div>
@@ -1853,6 +1856,7 @@ function rowHtml(r){
       '<button class="btn btn-sm btn-icon write-action" title="Ajustar contagem" aria-label="Ajustar contagem" data-action="ajustar" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>'+
       '<button class="btn btn-sm btn-icon write-action" title="Registrar compra" aria-label="Registrar compra" data-action="compra-item" data-item="'+it.id+'">+</button>'+
       '<button class="btn btn-sm btn-icon write-action" title="Registrar saída" aria-label="Registrar saída" data-action="saida-item" data-item="'+it.id+'">−</button>'+
+      '<button class="btn btn-sm btn-icon write-action" title="Excluir produto" aria-label="Excluir produto" data-action="excluir-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>'+
     '</div></td>'+
   '</tr>';
 }
@@ -2306,6 +2310,79 @@ function openAjusteModal(itemId){
     }
     closeModal(); renderAll(); await persist();
     toast('Contagem atualizada.');
+  });
+}
+
+/* -------- Novo produto -------- */
+function openNovoProdutoModal(){
+  var catOptions = CATEGORY_ORDER.map(function(c){ return '<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>'; }).join('');
+  var body = ''+
+    '<div class="field"><label>Nome do produto</label><input type="text" id="produto-nome" placeholder="Ex: Vacina Raiva"></div>'+
+    '<div class="field-row">'+
+      '<div class="field"><label>Categoria</label><select id="produto-categoria">'+catOptions+'</select></div>'+
+      '<div class="field"><label>Fornecedor (opcional)</label><input type="text" id="produto-fornecedor" placeholder="ex: Supermed"></div>'+
+    '</div>'+
+    '<div class="field-row">'+
+      '<div class="field"><label>Custo unitário</label><input type="number" min="0" step="0.01" id="produto-custo" value="0"></div>'+
+      '<div class="field"><label>Estoque inicial (opcional)</label><input type="number" min="0" step="0.01" id="produto-estoque-inicial" value="0"></div>'+
+      '<div class="field"><label>Estoque mínimo (opcional)</label><input type="number" min="0" step="1" id="produto-minimo" value="0"></div>'+
+    '</div>';
+  var foot = '<button class="btn btn-ghost" id="produto-cancel">Cancelar</button><button class="btn btn-primary write-action" id="produto-save">Criar produto</button>';
+  openModal('Novo produto', body, foot);
+  document.getElementById('produto-cancel').addEventListener('click', closeModal);
+  document.getElementById('produto-save').addEventListener('click', async function(){
+    var nome = document.getElementById('produto-nome').value.trim();
+    if(!nome){ toast('Informe o nome do produto.'); return; }
+    var duplicado = STATE.itens.some(function(i){ return normStr(i.nome)===normStr(nome); });
+    if(duplicado){ toast('Já existe um produto com esse nome.'); return; }
+    var custo = parseFloat(document.getElementById('produto-custo').value) || 0;
+    var estoqueInicial = parseFloat(document.getElementById('produto-estoque-inicial').value) || 0;
+    var minimo = parseFloat(document.getElementById('produto-minimo').value) || 0;
+    var novoItem = {
+      id: uid('item'), nome: nome,
+      categoria: document.getElementById('produto-categoria').value,
+      fornecedor: document.getElementById('produto-fornecedor').value.trim(),
+      custo: custo
+    };
+    STATE.itens.push(novoItem);
+    if(minimo>0){ STATE.minimos = STATE.minimos||{}; STATE.minimos[novoItem.id] = minimo; }
+    if(estoqueInicial>0){
+      STATE.lancamentos = STATE.lancamentos||[];
+      STATE.lancamentos.push({
+        id: uid('l'), tipo:'ajuste', data: todayISO(), nota:'Estoque inicial do produto',
+        itens:[{ itemId: novoItem.id, quantidade: estoqueInicial }], criadoEm: Date.now()
+      });
+    }
+    closeModal(); renderAll(); await persist();
+    toast('Produto "'+nome+'" criado.');
+  });
+}
+
+/* -------- Excluir produto -------- */
+function openExcluirProdutoModal(itemId){
+  var it = getItem(itemId);
+  if(!it) return;
+  var temMovimentacao = (STATE.lancamentos||[]).some(function(l){
+    return (l.itens||[]).some(function(li){ return li.itemId===itemId; });
+  });
+  var stockMap = computeStockMap(STATE);
+  var qtyAtual = stockMap[itemId]||0;
+  var aviso = temMovimentacao
+    ? '<div class="banner warn">Este produto tem compras, saídas ou ajustes registrados. O histórico dessas movimentações é mantido, mas deixa de exibir o nome do produto depois da exclusão.</div>'
+    : '';
+  var body = ''+
+    '<p>Tem certeza que deseja excluir <strong>'+escapeHtml(it.nome)+'</strong>? Estoque atual: '+fmtNum(qtyAtual,2)+'.</p>'+
+    aviso+
+    '<p class="hint">Essa ação não pode ser desfeita.</p>';
+  var foot = '<button class="btn btn-ghost" id="excluir-produto-cancel">Cancelar</button><button class="btn btn-danger write-action" id="excluir-produto-confirm">Excluir produto</button>';
+  openModal('Excluir produto', body, foot);
+  document.getElementById('excluir-produto-cancel').addEventListener('click', closeModal);
+  document.getElementById('excluir-produto-confirm').addEventListener('click', async function(){
+    STATE.itens = STATE.itens.filter(function(i){ return i.id!==itemId; });
+    if(STATE.minimos) delete STATE.minimos[itemId];
+    if(STATE.custos) delete STATE.custos[itemId];
+    closeModal(); renderAll(); await persist();
+    toast('Produto excluído.');
   });
 }
 
@@ -3730,6 +3807,7 @@ function imprimirOrcamento(orc){
 function wireStaticEvents(){
   document.getElementById('btn-registrar-compra').addEventListener('click', function(){ openCompraModal(); });
   document.getElementById('btn-registrar-saida').addEventListener('click', function(){ openSaidaModal(); });
+  document.getElementById('btn-novo-produto').addEventListener('click', function(){ openNovoProdutoModal(); });
   document.getElementById('btn-ver-servicos').addEventListener('click', function(){ openServicosCadastradosModal(); });
   document.getElementById('btn-import-inicial').addEventListener('click', function(){ openImportInicialModal(); });
   document.getElementById('btn-importar-nfe').addEventListener('click', function(){ openNFImportModal(); });
@@ -3802,6 +3880,7 @@ function wireStaticEvents(){
     else if(btn.dataset.action==='compra-item') openCompraModal(itemId);
     else if(btn.dataset.action==='saida-item') openSaidaModal(itemId);
     else if(btn.dataset.action==='historico') openHistoricoModal(itemId);
+    else if(btn.dataset.action==='excluir-item') openExcluirProdutoModal(itemId);
   });
 
   document.getElementById('stock-tbody').addEventListener('change', debounce(function(e){
