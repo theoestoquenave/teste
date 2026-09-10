@@ -3949,6 +3949,15 @@ function renderRelatorioCompras(){
   }
 }
 
+function unidadeDoPedido(l){
+  var direta = (l.unidade||'').trim();
+  if(direta) return direta;
+  // pedido do usuário, 2026-09-10: pedidos antigos não tinham o campo "unidade" salvo,
+  // mas o nome da unidade já aparecia na nota (ex.: "Pedido nº 335 — NAVE SÃO VICENTE (via ...)").
+  var m = /—\s*([^()]+?)\s*(?:\(via[^)]*\))?$/.exec(l.nota||'');
+  return m ? m[1].trim() : '';
+}
+
 function renderRelatorioPedidos(){
   var periodo = relPedidosPeriodo;
   var start = null;
@@ -3967,7 +3976,7 @@ function renderRelatorioPedidos(){
   pedidos.forEach(function(l){
     var valor = valorLinhasLancamento(l, false);
     totalValor += valor;
-    var unidade = (l.unidade||'').trim() || 'Sem unidade informada';
+    var unidade = unidadeDoPedido(l) || 'Sem unidade informada';
     porUnidade[unidade] = (porUnidade[unidade]||0) + valor;
     unidadesSet[unidade] = true;
   });
@@ -3988,7 +3997,7 @@ function renderRelatorioPedidos(){
       return (b.criadoEm||0)-(a.criadoEm||0);
     }).map(function(l){
       var valor = valorLinhasLancamento(l, false);
-      var unidade = (l.unidade||'').trim() || 'Sem unidade informada';
+      var unidade = unidadeDoPedido(l) || 'Sem unidade informada';
       return '<div class="log-row">'+
         '<div class="log-date">'+fmtDateShort(l.data)+'</div>'+
         '<span class="log-tag pedido">'+escapeHtml(unidade)+'</span>'+
