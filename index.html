@@ -310,6 +310,7 @@
     <a href="#estoque">Estoque</a>
     <a href="#servicos">Serviços</a>
     <a href="#orcamento">Orçamento</a>
+    <a href="#relatorios">Relatórios</a>
   </nav>
   <div class="meta">
     <span id="ro-badge" class="ro-badge" hidden>Somente leitura</span>
@@ -445,6 +446,72 @@
         </thead>
         <tbody id="orcamentos-tbody"></tbody>
       </table>
+    </div>
+  </section>
+
+  <section class="panel" id="relatorios">
+    <div class="panel-head">
+      <div>
+        <h2>Gastos em compras</h2>
+        <p>Quanto foi gasto comprando estoque em um mês — por categoria, fornecedor e item.</p>
+      </div>
+      <div class="panel-actions">
+        <input type="month" class="sel" id="rel-compras-mes">
+      </div>
+    </div>
+
+    <div class="stat-row" id="rel-compras-stats"></div>
+
+    <div class="chart-grid">
+      <div class="chart-card">
+        <h3>Gasto por categoria</h3>
+        <div class="chart-sub">No mês selecionado</div>
+        <div id="rel-compras-categoria"></div>
+      </div>
+      <div class="chart-card">
+        <h3>Gasto por fornecedor</h3>
+        <div class="chart-sub">No mês selecionado</div>
+        <div id="rel-compras-fornecedor"></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Itens com maior gasto no mês</h3>
+      <div class="chart-sub">Top 8 por valor comprado</div>
+      <div id="rel-compras-itens"></div>
+    </div>
+
+    <div>
+      <h3 style="font-size:14px;margin:0 0 10px;">Compras do mês</h3>
+      <div class="log-list" id="rel-compras-log"></div>
+    </div>
+
+    <div class="panel-head" style="margin-top:12px;">
+      <div>
+        <h2>Pedidos das unidades</h2>
+        <p>Histórico de pedidos atendidos por outras unidades e o valor que representam (pelo custo atual dos itens).</p>
+      </div>
+      <div class="panel-actions">
+        <select class="sel" id="rel-pedidos-periodo">
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+          <option value="365">Últimos 12 meses</option>
+          <option value="all" selected>Todo o período</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="stat-row" id="rel-pedidos-stats"></div>
+
+    <div class="chart-card">
+      <h3>Valor por unidade</h3>
+      <div class="chart-sub">Soma dos pedidos atendidos no período, pelo custo atual de cada item</div>
+      <div id="rel-pedidos-unidades"></div>
+    </div>
+
+    <div>
+      <h3 style="font-size:14px;margin:0 0 10px;">Pedidos no período</h3>
+      <div class="log-list" id="rel-pedidos-log"></div>
     </div>
   </section>
 </main>
@@ -1099,6 +1166,8 @@ var servicoPeriodo = 30;
 // duas visões pedidas: "all" (padrão) agrega todas as unidades (visão de rede, para embasar compra
 // central); escolher uma unidade específica filtra só os atendimentos dela (monitoramento local).
 var servicoUnidade = 'all';
+var relCompraMes = null; // definido em init() como o mês atual (YYYY-MM)
+var relPedidosPeriodo = 'all';
 
 /* ---------------- utils ---------------- */
 function uid(prefix){ return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
@@ -2029,6 +2098,8 @@ function renderAll(){
   renderServicoLog();
   renderDatalist();
   renderOrcamentosTable();
+  renderRelatorioCompras();
+  renderRelatorioPedidos();
 }
 
 function renderDatalist(){
@@ -3780,6 +3851,156 @@ function renderOrcamentosTable(){
   }).join('');
 }
 
+/* ---------------- relatórios ---------------- */
+// Pedido do usuário, 2026-09-10: "aba de relatórios" com gastos em compras no mês e histórico de
+// pedidos das unidades com seus valores. O valor de cada linha de pedido usa o custo ATUAL do item
+// (pedidos não guardam custoUnit histórico, ao contrário de compras) — mesma aproximação já usada
+// na "Simulação de compras" para saída média.
+var MESES_NOME = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function fmtMesAno(mes){
+  var p = (mes||'').split('-');
+  if(p.length!==2) return mes||'—';
+  var idx = parseInt(p[1],10)-1;
+  return (MESES_NOME[idx]||p[1])+' de '+p[0];
+}
+
+function barListHtml(map, fmtFn){
+  var keys = Object.keys(map).filter(function(k){ return map[k]>0; }).sort(function(a,b){ return map[b]-map[a]; });
+  if(keys.length===0) return '<div class="empty-state">Sem dados no período.</div>';
+  var max = Math.max.apply(null, keys.map(function(k){ return map[k]; }));
+  return keys.map(function(k){
+    var pct = Math.round((map[k]/max)*100);
+    return '<div class="bar-row">'+
+      '<div class="bar-label" title="'+escapeHtml(k)+'">'+escapeHtml(k)+'</div>'+
+      '<div class="bar-track"><div class="bar-fill" style="width:'+pct+'%;background:var(--accent)"></div></div>'+
+      '<div class="bar-value tabular" style="width:auto;min-width:72px;">'+fmtFn(map[k])+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function valorLinhasLancamento(l, usarCustoHistorico){
+  return (l.itens||[]).reduce(function(s,li){
+    var it = getItem(li.itemId);
+    var custo = (usarCustoHistorico && li.custoUnit!=null) ? li.custoUnit : (it?it.custo:0);
+    return s + custo*(Number(li.quantidade)||0);
+  },0);
+}
+
+function renderRelatorioCompras(){
+  var mesInput = document.getElementById('rel-compras-mes');
+  if(!mesInput) return;
+  if(!relCompraMes) relCompraMes = mesInput.value || todayISO().slice(0,7);
+  if(!mesInput.value) mesInput.value = relCompraMes;
+  var mes = relCompraMes;
+  var compras = (STATE.lancamentos||[]).filter(function(l){ return l.tipo==='compra' && (l.data||'').slice(0,7)===mes; });
+
+  var totalGasto = 0, totalItens = 0;
+  var porCategoria = {}, porFornecedor = {}, porItem = {}, itemNomes = {};
+  compras.forEach(function(l){
+    var valorCompra = 0;
+    (l.itens||[]).forEach(function(li){
+      var it = getItem(li.itemId);
+      var custo = li.custoUnit!=null ? li.custoUnit : (it?it.custo:0);
+      var valor = custo * (Number(li.quantidade)||0);
+      totalGasto += valor;
+      totalItens += Number(li.quantidade)||0;
+      valorCompra += valor;
+      if(it){
+        porCategoria[it.categoria] = (porCategoria[it.categoria]||0) + valor;
+        porItem[it.id] = (porItem[it.id]||0) + valor;
+        itemNomes[it.id] = it.nome;
+      }
+    });
+    var fornecedor = (l.fornecedor||'').trim() || 'Fornecedor não informado';
+    porFornecedor[fornecedor] = (porFornecedor[fornecedor]||0) + valorCompra;
+  });
+
+  document.getElementById('rel-compras-stats').innerHTML = ''+
+    '<div class="stat-tile"><div class="label">Total gasto</div><div class="value tabular">'+fmtBRL(totalGasto)+'</div><div class="sub">'+fmtMesAno(mes)+'</div></div>'+
+    '<div class="stat-tile"><div class="label">Compras registradas</div><div class="value tabular">'+compras.length+'</div><div class="sub">lançamentos no mês</div></div>'+
+    '<div class="stat-tile"><div class="label">Itens comprados</div><div class="value tabular">'+fmtNum(totalItens,0)+'</div><div class="sub">soma das quantidades</div></div>';
+
+  document.getElementById('rel-compras-categoria').innerHTML = barListHtml(porCategoria, fmtBRL);
+  document.getElementById('rel-compras-fornecedor').innerHTML = barListHtml(porFornecedor, fmtBRL);
+
+  var topItens = Object.keys(porItem).sort(function(a,b){ return porItem[b]-porItem[a]; }).slice(0,8);
+  var porItemNome = {};
+  topItens.forEach(function(id){ porItemNome[itemNomes[id]] = porItem[id]; });
+  document.getElementById('rel-compras-itens').innerHTML = barListHtml(porItemNome, fmtBRL);
+
+  var logEl = document.getElementById('rel-compras-log');
+  if(compras.length===0){
+    logEl.innerHTML = '<div class="empty-state">Nenhuma compra registrada nesse mês.</div>';
+  }else{
+    logEl.innerHTML = compras.slice().sort(function(a,b){
+      if(a.data!==b.data) return a.data<b.data ? 1 : -1;
+      return (b.criadoEm||0)-(a.criadoEm||0);
+    }).map(function(l){
+      var valor = valorLinhasLancamento(l, true);
+      return '<div class="log-row">'+
+        '<div class="log-date">'+fmtDateShort(l.data)+'</div>'+
+        '<span class="log-tag compra">Compra</span>'+
+        '<div class="log-body">'+escapeHtml((l.fornecedor||'').trim() || 'Fornecedor não informado')+' · '+(l.itens||[]).length+' item(ns)'+
+          (l.nota? '<div class="log-note">'+escapeHtml(l.nota)+'</div>' : '')+
+        '</div>'+
+        '<div class="tabular" style="font-weight:700;white-space:nowrap;flex:none;">'+fmtBRL(valor)+'</div>'+
+      '</div>';
+    }).join('');
+  }
+}
+
+function renderRelatorioPedidos(){
+  var periodo = relPedidosPeriodo;
+  var start = null;
+  if(periodo!=='all'){
+    var d = new Date();
+    d.setDate(d.getDate() - Number(periodo));
+    start = d.toISOString().slice(0,10);
+  }
+  var pedidos = (STATE.lancamentos||[]).filter(function(l){
+    if(l.tipo!=='saida' || l.subtipo!=='pedido') return false;
+    if(start && l.data < start) return false;
+    return true;
+  });
+
+  var totalValor = 0, porUnidade = {}, unidadesSet = {};
+  pedidos.forEach(function(l){
+    var valor = valorLinhasLancamento(l, false);
+    totalValor += valor;
+    var unidade = (l.unidade||'').trim() || 'Sem unidade informada';
+    porUnidade[unidade] = (porUnidade[unidade]||0) + valor;
+    unidadesSet[unidade] = true;
+  });
+
+  document.getElementById('rel-pedidos-stats').innerHTML = ''+
+    '<div class="stat-tile"><div class="label">Valor total em pedidos</div><div class="value tabular">'+fmtBRL(totalValor)+'</div><div class="sub">pelo custo atual dos itens</div></div>'+
+    '<div class="stat-tile"><div class="label">Unidades atendidas</div><div class="value tabular">'+Object.keys(unidadesSet).length+'</div><div class="sub">no período</div></div>'+
+    '<div class="stat-tile"><div class="label">Pedidos registrados</div><div class="value tabular">'+pedidos.length+'</div><div class="sub">saídas de estoque do tipo pedido</div></div>';
+
+  document.getElementById('rel-pedidos-unidades').innerHTML = barListHtml(porUnidade, fmtBRL);
+
+  var logEl = document.getElementById('rel-pedidos-log');
+  if(pedidos.length===0){
+    logEl.innerHTML = '<div class="empty-state">Nenhum pedido registrado nesse período.</div>';
+  }else{
+    logEl.innerHTML = pedidos.slice().sort(function(a,b){
+      if(a.data!==b.data) return a.data<b.data ? 1 : -1;
+      return (b.criadoEm||0)-(a.criadoEm||0);
+    }).map(function(l){
+      var valor = valorLinhasLancamento(l, false);
+      var unidade = (l.unidade||'').trim() || 'Sem unidade informada';
+      return '<div class="log-row">'+
+        '<div class="log-date">'+fmtDateShort(l.data)+'</div>'+
+        '<span class="log-tag pedido">'+escapeHtml(unidade)+'</span>'+
+        '<div class="log-body">'+(l.itens||[]).length+' item(ns)'+
+          (l.nota? '<div class="log-note">'+escapeHtml(l.nota)+'</div>' : '')+
+        '</div>'+
+        '<div class="tabular" style="font-weight:700;white-space:nowrap;flex:none;">'+fmtBRL(valor)+'</div>'+
+      '</div>';
+    }).join('');
+  }
+}
+
 function atualizarTotalOrcamentoModal(linesWrap, totalEl){
   var total = 0;
   linesWrap.querySelectorAll('.line-item').forEach(function(line){
@@ -4003,6 +4224,15 @@ function wireStaticEvents(){
   });
   document.getElementById('btn-importar-servicos').addEventListener('click', function(){ openImportarServicosModal(); });
 
+  document.getElementById('rel-compras-mes').addEventListener('change', function(e){
+    relCompraMes = e.target.value || todayISO().slice(0,7);
+    renderRelatorioCompras();
+  });
+  document.getElementById('rel-pedidos-periodo').addEventListener('change', function(e){
+    relPedidosPeriodo = e.target.value==='all' ? 'all' : Number(e.target.value);
+    renderRelatorioPedidos();
+  });
+
   document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeModal(); });
 }
 
@@ -4016,6 +4246,8 @@ async function init(){
   STATE.custos = STATE.custos || {};
   STATE.lotes = STATE.lotes || [];
   STATE.orcamentos = STATE.orcamentos || [];
+  relCompraMes = todayISO().slice(0,7);
+  document.getElementById('rel-compras-mes').value = relCompraMes;
   wireStaticEvents();
   renderAll();
   await getArtifact();
