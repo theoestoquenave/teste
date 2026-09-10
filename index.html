@@ -3227,6 +3227,19 @@ async function xlsxToRows(arrayBuffer){
 function normHeader(s){ return (s||'').toString().trim().toLowerCase(); }
 
 // Agrupa as linhas da planilha de "Pedidos" por Pedido ID — cada grupo vira uma saída.
+// Reconhece a unidade Jabaquara (nome fantasia "Lelupets") a partir da observação do pedido —
+// pedido do usuário, 2026-09-10: a coluna "Unidade Nome fantasia" às vezes vem vazia ou errada
+// para os pedidos dessa unidade, mas a observação menciona "jabaquara" ou "lelupets". Lista
+// pequena e explícita (mesmo padrão de CORRELACAO_SERVICOS_EXTRA) para poder crescer com outras
+// unidades no futuro sem virar heurística genérica demais.
+var UNIDADE_ALIASES_OBSERVACAO = [
+  { re: /jabaquara|lelupets/i, unidade: 'Jabaquara' }
+];
+function detectarUnidadePorObservacao(observacao){
+  var alias = UNIDADE_ALIASES_OBSERVACAO.find(function(a){ return a.re.test(observacao||''); });
+  return alias ? alias.unidade : null;
+}
+
 function parsePedidoRows(rows){
   if(!rows || rows.length < 2) return null;
   var headers = rows[0].map(normHeader);
@@ -3248,12 +3261,16 @@ function parsePedidoRows(rows){
     var qtd = parseFloat((r[cQtd]||'0').toString().replace(',','.')) || 0;
     var pedidoId = cPedido>=0 ? (r[cPedido]||'').toString().trim() : 'sem-id';
     if(!grupos[pedidoId]){
+      var observacao = cObs>=0 ? (r[cObs]||'').toString().trim() : '';
+      var unidadeNome = cUnidade>=0 ? (r[cUnidade]||'').toString().trim() : '';
+      var unidadePorObs = detectarUnidadePorObservacao(observacao);
+      if(unidadePorObs) unidadeNome = unidadePorObs;
       grupos[pedidoId] = {
         pedidoId: pedidoId,
-        unidadeNome: cUnidade>=0 ? (r[cUnidade]||'').toString().trim() : '',
+        unidadeNome: unidadeNome,
         fornecedorNome: cFornecedor>=0 ? (r[cFornecedor]||'').toString().trim() : '',
         dataPedido: cData>=0 ? (r[cData]||'').toString().trim() : '',
-        observacao: cObs>=0 ? (r[cObs]||'').toString().trim() : '',
+        observacao: observacao,
         produtos: []
       };
       ordem.push(pedidoId);
@@ -3290,11 +3307,15 @@ function pedidoItemRowHtml(p, idx){
 
 function renderPedidoReview(pedidos){
   var html = pedidos.map(function(ped, i){
+    var unidadeDetectada = detectarUnidadePorObservacao(ped.observacao);
+    var avisoUnidade = unidadeDetectada ?
+      '<div class="nf-nota-meta">Unidade "'+escapeHtml(unidadeDetectada)+'" reconhecida pela observação do pedido — confira se está correto.</div>' : '';
     return ''+
       '<div class="nf-nota-block" data-pedido-block="'+i+'">'+
         '<div class="nf-nota-head">'+
           '<div class="field"><label>Data</label><input type="date" id="pedido-nota-'+i+'-data" value="'+parseDataPedidoToISO(ped.dataPedido)+'"></div>'+
           '<div class="field"><label>Unidade / destino</label><input type="text" id="pedido-nota-'+i+'-unidade" value="'+escapeHtml(ped.unidadeNome||'')+'"></div>'+
+          avisoUnidade+
           '<div class="nf-nota-meta">Pedido nº '+escapeHtml(ped.pedidoId||'—')+(ped.fornecedorNome? ' · '+escapeHtml(ped.fornecedorNome):'')+' · '+ped.produtos.length+' produto(s) — vincule cada um a um item do catálogo (ou marque "Pular")</div>'+
         '</div>'+
         '<div class="nf-item-list">'+ ped.produtos.map(function(p,j){ return pedidoItemRowHtml(p,j); }).join('') +'</div>'+
@@ -3375,11 +3396,13 @@ function openPedidoImportModal(){
         lines.push({ itemId: it.id, quantidade: qty });
       });
       if(lines.length===0) return;
+      var unidadeDestino = (unidadeEl && unidadeEl.value.trim()) || '';
       candidatos.push({
         id: uid('l'), tipo:'saida', subtipo:'pedido',
         tipoServico:null, tipoServicoGrupo:null, tipoServicoMult:1,
         data: (dataEl && dataEl.value) || todayISO(),
-        nota: 'Pedido nº '+(ped.pedidoId||'—')+((unidadeEl && unidadeEl.value.trim())? ' — '+unidadeEl.value.trim():'')+(ped.fornecedorNome? ' (via '+ped.fornecedorNome+')':''),
+        unidade: unidadeDestino,
+        nota: 'Pedido nº '+(ped.pedidoId||'—')+(unidadeDestino? ' — '+unidadeDestino:'')+(ped.fornecedorNome? ' (via '+ped.fornecedorNome+')':''),
         itens: lines, criadoEm: Date.now()
       });
     });
