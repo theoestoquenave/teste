@@ -1673,6 +1673,10 @@ async function persist(){
     // artifact.publish(html): publica o documento inteiro como nova versão — é assim que a
     // própria página "lembra" o que as pessoas fazem nela (ver nota grande acima, em
     // loadState). Ao ter sucesso, esta mesma aba recarrega sozinha para a versão publicada.
+    // pedido do usuário, 2026-09-15: esse recarregamento sempre jogava a rolagem de volta pro
+    // topo da página (ex.: depois de excluir um produto no meio de uma lista longa). Guardamos
+    // a posição atual para restaurar assim que a página recarregar.
+    try{ sessionStorage.setItem('painelScrollY', String(window.scrollY)); }catch(e){}
     await api.publish(html);
     setReadOnly(false);
     setLastUpdate();
@@ -1694,6 +1698,16 @@ async function persist(){
       toast('Não foi possível salvar agora. Tente novamente em instantes.');
     }
   }
+}
+
+function restoreScrollAfterReload(){
+  var y;
+  try{
+    y = sessionStorage.getItem('painelScrollY');
+    sessionStorage.removeItem('painelScrollY');
+  }catch(e){ return; }
+  if(y==null) return;
+  requestAnimationFrame(function(){ window.scrollTo(0, Number(y)||0); });
 }
 
 function setLastUpdate(){
@@ -4259,6 +4273,7 @@ async function init(){
   document.getElementById('rel-compras-mes').value = relCompraMes;
   wireStaticEvents();
   renderAll();
+  restoreScrollAfterReload();
   await getArtifact();
   // Importante (contrato da capability `artifact`): nunca publicar sozinho no carregamento da
   // página, só depois de uma ação real do usuário. Se esta cópia usou a carga inicial da
