@@ -243,6 +243,7 @@
 
   <div class="navgroup-label">Relatórios</div>
   <button class="navbtn" data-view="relatorios">Relatórios de gastos</button>
+  <button class="navbtn" data-view="consumo">Análise de consumo</button>
 
   <div class="navgroup-label">Cadastro</div>
   <button class="navbtn" data-view="catalogo">Catálogo de produtos</button>
@@ -559,6 +560,75 @@
       </table></div>
     </div>
   </section>
+
+  <!-- CONSUMO DE PRODUTOS -->
+  <section class="view" id="view-consumo">
+    <div class="topbar">
+      <div>
+        <h1>Análise de consumo — Banho &amp; Tosa</h1>
+        <p>Cruza o consumo de produtos com os serviços realizados, pra verificar se a diluição/utilização está coerente com o volume de atendimentos de cada unidade.</p>
+      </div>
+    </div>
+    <div class="readonly-banner show" style="background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong);">
+      <strong>Em construção por etapas.</strong> O relatório comparativo (esperado × real, por unidade, com desvio e ranking) depende de três bases que ainda não foram importadas: <strong>histórico de compras</strong>, <strong>histórico de saída/venda de produtos</strong> e <strong>histórico de serviços realizados</strong>. Por enquanto esta tela guarda e confere as duas bases de referência — a relação Serviço × Produto e a tabela de rendimento/diluição — que vão alimentar o cálculo do consumo esperado assim que as demais planilhas chegarem. Nenhum número de consumo é calculado ainda.
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 style="margin-bottom:2px;">Relação Serviço × Produto</h2>
+          <div class="sub" id="rsp-status" style="margin-bottom:0;">Nenhuma relação importada ainda.</div>
+        </div>
+        <div class="row" style="align-items:center;">
+          <input type="file" id="rsp-arquivo" accept=".xlsx">
+          <button class="btn-primary" id="rsp-processar" disabled>Processar arquivo</button>
+        </div>
+      </div>
+      <div id="rsp-preview-card" style="display:none; margin-top:16px;">
+        <div class="sub" id="rsp-preview-resumo" style="margin-bottom:10px;"></div>
+        <div class="tablewrap"><table id="rsp-preview-tabela">
+          <thead><tr><th>Serviço</th><th>Categoria</th><th>Produtos (confira o produto do catálogo e o peso %)</th><th>Obs.</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div class="row" style="margin-top:16px;">
+          <button class="btn-primary" id="rsp-confirmar">Salvar relação Serviço × Produto</button>
+          <button class="btn-ghost" id="rsp-cancelar">Cancelar</button>
+        </div>
+      </div>
+      <div class="tablewrap" style="margin-top:16px;"><table id="rsp-tabela">
+        <thead><tr><th>Serviço</th><th>Categoria</th><th>Produtos (peso)</th><th>Obs.</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 style="margin-bottom:2px;">Tabela de rendimento (diluição / consumo por aplicação)</h2>
+          <div class="sub" id="rend-status" style="margin-bottom:0;">Nenhuma tabela importada ainda.</div>
+        </div>
+        <div class="row" style="align-items:center;">
+          <input type="file" id="rend-arquivo" accept=".xlsx">
+          <button class="btn-primary" id="rend-processar" disabled>Processar arquivo</button>
+        </div>
+      </div>
+      <div id="rend-preview-card" style="display:none; margin-top:16px;">
+        <div class="sub" id="rend-preview-resumo" style="margin-bottom:10px;"></div>
+        <div class="tablewrap"><table id="rend-preview-tabela">
+          <thead><tr><th>Produto (confira o produto do catálogo)</th><th>Apresentação</th><th>Rendimento</th><th class="num">Consumo/aplicação (estimado)</th><th>Diluição</th><th>Obs.</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <div class="row" style="margin-top:16px;">
+          <button class="btn-primary" id="rend-confirmar">Salvar tabela de rendimento</button>
+          <button class="btn-ghost" id="rend-cancelar">Cancelar</button>
+        </div>
+      </div>
+      <div class="tablewrap" style="margin-top:16px;"><table id="rend-tabela">
+        <thead><tr><th>Produto</th><th>Apresentação</th><th>Rendimento</th><th class="num">Consumo/aplicação (estimado)</th><th>Diluição</th><th>Obs.</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
 </div>
 
 <div id="toast-root"></div>
@@ -577,7 +647,7 @@ const CATALOGO_BANHO = [{"produto": "Algodão Hidrofilo 500G (Banho e tosa)", "e
 
 
 /* =========================== ESTADO =========================== */
-let pedidosState = { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [] };
+let pedidosState = { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [], relacaoServicoProduto: [], rendimentoProdutos: [] };
 let artifactNs = null;
 let readOnly = false;
 
@@ -593,9 +663,11 @@ function loadState(){
     if (!json.pedidosBanho) json.pedidosBanho = [];
     if (!json.nextId) json.nextId = 1;
     if (!json.catalogoExtraBanho) json.catalogoExtraBanho = [];
+    if (!json.relacaoServicoProduto) json.relacaoServicoProduto = [];
+    if (!json.rendimentoProdutos) json.rendimentoProdutos = [];
     return json;
   }catch(e){
-    return { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [] };
+    return { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [], relacaoServicoProduto: [], rendimentoProdutos: [] };
   }
 }
 
@@ -727,7 +799,7 @@ function fillSelect(sel, options, withPlaceholder){
 }
 
 /* =========================== NAVEGAÇÃO =========================== */
-const views = ['pedido-banho','importar','aprovacao','export','relatorios','catalogo'];
+const views = ['pedido-banho','importar','aprovacao','export','relatorios','consumo','catalogo'];
 const VIEW_STORAGE_KEY = 'painelNave_ultimaTela';
 function salvarUltimaTela(name){
   try{ localStorage.setItem(VIEW_STORAGE_KEY, name); }catch(e){ /* sem storage disponível, tudo bem */ }
@@ -917,7 +989,11 @@ function cellText(cEl, sharedStrings){
   return v ? v.textContent : '';
 }
 
-async function parseXlsxFirstSheet(arrayBuffer){
+/* Lê a primeira planilha (aba) de um .xlsx e devolve as linhas em bruto —
+   um array de arrays, sem interpretar cabeçalho. Usado por parseXlsxFirstSheet
+   (que converte pra objetos por coluna) e por leitores de formato mais livre,
+   como a tabela de rendimento, que não tem uma linha de cabeçalho única. */
+async function parseXlsxRawRows(arrayBuffer){
   const entries = readZipEntries(arrayBuffer);
   let sharedStrings = [];
   if (entries['xl/sharedStrings.xml']){
@@ -944,6 +1020,11 @@ async function parseXlsxFirstSheet(arrayBuffer){
     for (let i = 0; i < rowArr.length; i++) if (rowArr[i] === undefined) rowArr[i] = '';
     rows.push(rowArr);
   }
+  return rows;
+}
+
+async function parseXlsxFirstSheet(arrayBuffer){
+  const rows = await parseXlsxRawRows(arrayBuffer);
   if (!rows.length) return { header: [], rows: [] };
   const header = rows[0].map(h => (h||'').trim());
   const dataRows = rows.slice(1).map(r => {
@@ -2224,6 +2305,317 @@ function renderRelatorios(){
     : `<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado ${semPedidoTexto}.</div></td></tr>`;
 }
 
+/* =========================== CONSUMO DE PRODUTOS — BASE DE DADOS =========================== *
+ * Guarda e confere duas planilhas de referência (Relação Serviço×Produto e
+ * Rendimento/diluição por produto) que vão alimentar o cálculo de consumo
+ * esperado assim que o histórico de compras, saídas e serviços realizados
+ * também forem importados. Por enquanto esta tela só guarda essas duas
+ * bases — nenhum número de consumo esperado/real é calculado ainda.
+ *
+ * Cada planilha usa nomes de produto que não batem exatamente com o
+ * catálogo (abreviações, pequenas diferenças de diluição no nome etc.), por
+ * isso toda linha importada passa por uma etapa de conferência: o sistema
+ * sugere automaticamente um produto do catálogo só quando o nome bate
+ * exatamente após normalizar (maiúsculas, sem acento); o resto fica em
+ * branco pra escolha manual antes de salvar — nunca assume um match errado. */
+
+// Normaliza nome de produto pra comparação (maiúsculas, sem acento, sem espaço duplicado).
+function normalizarNomeParaMatch(s){
+  return stripAccents((s||'').toString()).toUpperCase().replace(/\s+/g,' ').trim();
+}
+function sugerirProdutoCatalogo(nomeOriginal){
+  const alvo = normalizarNomeParaMatch(nomeOriginal);
+  if (!alvo) return null;
+  const achou = CATALOGO_BANHO.find(c => normalizarNomeParaMatch(c.produto) === alvo);
+  return achou ? achou.produto : null;
+}
+function optionsProdutoCatalogo(selecionado){
+  const opts = ['<option value="">— não corresponde a nenhum produto —</option>']
+    .concat(CATALOGO_BANHO.map(c => `<option value="${escapeHtml(c.produto)}"${c.produto===selecionado?' selected':''}>${escapeHtml(c.produto)}</option>`));
+  return opts.join('');
+}
+
+// Excel guarda diluição tipo "1:10" como hora (fração do dia); nosso leitor de
+// XLSX não interpreta formato numérico, só o valor cru — então uma célula de
+// diluição vem como decimal (ex.: 0.0486111 = 1:10). Texto livre (sem número
+// puro entre 0 e 1) é mantido como está.
+function serialParaDiluicao(valorBruto){
+  const s = (valorBruto||'').toString().trim();
+  if (!s) return '';
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 0 && n < 1){
+    const totalMin = Math.round(n * 24 * 60);
+    const h = Math.floor(totalMin / 60), m = totalMin % 60;
+    return `${h}:${String(m).padStart(2,'0')}`;
+  }
+  return s;
+}
+// "150 aplicações" -> 150; "40/45 aplicações" -> média (42.5); texto sem
+// número (ex.: "ajustar conforme necessidade") -> null.
+function parseRendimentoTexto(s){
+  const mFaixa = (s||'').match(/(\d+)\s*\/\s*(\d+)/);
+  if (mFaixa) return (Number(mFaixa[1]) + Number(mFaixa[2])) / 2;
+  const m = (s||'').match(/(\d+(?:[.,]\d+)?)/);
+  return m ? Number(m[1].replace(',', '.')) : null;
+}
+// "500ml" -> {valor:500,unidade:'ml'}; "5L" -> {valor:5000,unidade:'ml'} (litro
+// e kg convertidos pra ml/g, pra poder dividir pelo rendimento em aplicações).
+function parseApresentacaoParaNumero(s){
+  const m = (s||'').match(/([\d.,]+)\s*(ml|l|g|kg)\b/i);
+  if (!m) return null;
+  let valor = Number(m[1].replace(',', '.'));
+  let unidade = m[2].toLowerCase();
+  if (unidade === 'l'){ valor *= 1000; unidade = 'ml'; }
+  if (unidade === 'kg'){ valor *= 1000; unidade = 'g'; }
+  return { valor, unidade };
+}
+
+/* --- Relação Serviço × Produto ---
+   Formato observado: linha 0 é cabeçalho (PET_SHOP | categoria | código do
+   serviço | Serviço | "Produto utilizado:" | 1..6 (até 6 produtos por
+   serviço) | OBS). Serviços sem nenhum produto nas colunas 1..6 ficam
+   marcados como "sem produto associado" — entram no relatório de volume de
+   serviços, mas nunca geram consumo esperado (regra pedida explicitamente). */
+function parseRelacaoServicoProdutoRows(rows){
+  const itens = [];
+  for (let i = 1; i < rows.length; i++){
+    const r = rows[i];
+    const servico = (r[3]||'').toString().trim();
+    if (!servico) continue;
+    const categoria = (r[1]||'').toString().trim() || null;
+    const codigoServico = (r[2]||'').toString().trim() || null;
+    const obs = (r[11]||'').toString().trim() || null;
+    const nomesProdutos = [];
+    for (let c = 5; c <= 10; c++){
+      const nome = (r[c]||'').toString().trim();
+      if (nome && !nomesProdutos.includes(nome)) nomesProdutos.push(nome);
+    }
+    // Regra combinada com o usuário: quando a OBS indica variação por cor de
+    // pelagem (claro/escuro), considerar 33% dos atendimentos com pelagem
+    // clara (produto "PELOS CLAROS") e 67% com pelagem escura (produto
+    // "NEUTRO", tomando cuidado pra não casar com "NEUTRALIZADOR").
+    const temClaroEscuro = obs && /pelo\s*claro/i.test(obs) && /(pelo\s*escuro|neutro)/i.test(obs);
+    const produtos = nomesProdutos.map(nome => {
+      let peso = 100;
+      if (temClaroEscuro){
+        if (/PELOS?\s*CLAROS?/i.test(nome)) peso = 33;
+        else if (/\bNEUTRO\b/i.test(nome) && !/NEUTRALIZADOR/i.test(nome)) peso = 67;
+      }
+      return { nomeOriginal: nome, produtoCatalogo: sugerirProdutoCatalogo(nome), peso };
+    });
+    itens.push({ servico, categoria, codigoServico, obs, produtos, semProduto: produtos.length === 0 });
+  }
+  return itens;
+}
+
+/* --- Tabela de rendimento/diluição ---
+   Formato observado: blocos repetidos de 4 linhas rotuladas na coluna A
+   ("PRODUTO:", "APRESENTAÇÃO:", "RENDIMENTO:", "DILUIÇÃO:", "OBS:"), com
+   vários produtos lado a lado nas colunas seguintes — não é uma tabela
+   normal linha-por-produto. */
+function parseRendimentoRows(rows){
+  const linhasNorm = rows.map(r => (r[0]||'').toString().trim().toUpperCase());
+  const itens = [];
+  for (let i = 0; i < rows.length; i++){
+    if (linhasNorm[i] !== 'PRODUTO:') continue;
+    const rProduto = rows[i];
+    let rApres = null, rRend = null, rDil = null, rObs = null;
+    for (let j = i+1; j < Math.min(i+6, rows.length); j++){
+      const label = linhasNorm[j];
+      if (label === 'APRESENTAÇÃO:') rApres = rows[j];
+      else if (label === 'RENDIMENTO:') rRend = rows[j];
+      else if (label === 'DILUIÇÃO:') rDil = rows[j];
+      else if (label === 'OBS:') rObs = rows[j];
+      else if (label === 'PRODUTO:') break;
+    }
+    const maxCol = Math.max(rProduto.length, rApres ? rApres.length : 0, rRend ? rRend.length : 0);
+    for (let c = 1; c < maxCol; c++){
+      const nome = (rProduto[c]||'').toString().trim();
+      if (!nome) continue;
+      const apresentacao = rApres ? (rApres[c]||'').toString().trim() : '';
+      const rendimentoTexto = rRend ? (rRend[c]||'').toString().trim() : '';
+      const diluicao = rDil ? serialParaDiluicao(rDil[c]) : '';
+      const obsRendimento = rObs ? (rObs[c]||'').toString().trim() : '';
+      const rendimentoNumero = parseRendimentoTexto(rendimentoTexto);
+      const apresentacaoNum = parseApresentacaoParaNumero(apresentacao);
+      const ajustavel = /ajustad[ao]|necessidade/i.test(rendimentoTexto);
+      const consumoPorAplicacao = (rendimentoNumero && apresentacaoNum) ? (apresentacaoNum.valor / rendimentoNumero) : null;
+      itens.push({
+        nomeOriginal: nome, produtoCatalogo: sugerirProdutoCatalogo(nome),
+        apresentacao, rendimentoTexto, rendimentoNumero, diluicao, obsRendimento, ajustavel,
+        consumoPorAplicacao, unidadeConsumo: apresentacaoNum ? apresentacaoNum.unidade : null,
+      });
+    }
+  }
+  return itens;
+}
+
+let rspPreview = null; // itens lidos do arquivo, antes de confirmar
+let rendPreview = null;
+
+function linhasProdutosRspHtml(produtos, idxServico){
+  if (!produtos.length) return '<span class="sub" style="margin:0;">Sem produto associado</span>';
+  return produtos.map((p, idxProduto) => `
+    <div class="row" style="align-items:center; gap:8px; margin-bottom:4px;">
+      <span class="mono" style="font-size:11.5px; min-width:0; flex:1;">${escapeHtml(p.nomeOriginal)}</span>
+      <select class="rsp-match-select" data-idx-servico="${idxServico}" data-idx-produto="${idxProduto}" style="max-width:260px;">${optionsProdutoCatalogo(p.produtoCatalogo)}</select>
+      <input type="number" class="rsp-peso-input" data-idx-servico="${idxServico}" data-idx-produto="${idxProduto}" min="0" max="100" step="1" value="${p.peso}" style="width:64px;" title="Peso (%) desse produto nesse serviço">%
+    </div>`).join('');
+}
+
+function renderRspPreview(){
+  const card = document.getElementById('rsp-preview-card');
+  if (!rspPreview){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const semProduto = rspPreview.filter(i => i.semProduto).length;
+  const naoConferidos = rspPreview.reduce((s,i) => s + i.produtos.filter(p => !p.produtoCatalogo).length, 0);
+  document.getElementById('rsp-preview-resumo').textContent =
+    `${rspPreview.length} serviço(s) lido(s) — ${semProduto} sem produto associado, ${naoConferidos} produto(s) ainda sem correspondência confirmada no catálogo.`;
+  const tbody = document.querySelector('#rsp-preview-tabela tbody');
+  tbody.innerHTML = rspPreview.map((item, idx) => `
+    <tr>
+      <td>${escapeHtml(item.servico)}</td>
+      <td>${escapeHtml(item.categoria || '-')}</td>
+      <td>${linhasProdutosRspHtml(item.produtos, idx)}</td>
+      <td class="sub" style="max-width:220px;">${escapeHtml(item.obs || '-')}</td>
+    </tr>`).join('');
+  tbody.querySelectorAll('.rsp-match-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      rspPreview[Number(sel.dataset.idxServico)].produtos[Number(sel.dataset.idxProduto)].produtoCatalogo = sel.value || null;
+      renderRspPreview();
+    });
+  });
+  tbody.querySelectorAll('.rsp-peso-input').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const v = Math.max(0, Math.min(100, Number(inp.value) || 0));
+      rspPreview[Number(inp.dataset.idxServico)].produtos[Number(inp.dataset.idxProduto)].peso = v;
+    });
+  });
+}
+
+function renderRendPreview(){
+  const card = document.getElementById('rend-preview-card');
+  if (!rendPreview){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const naoConferidos = rendPreview.filter(i => !i.produtoCatalogo).length;
+  const semRendimentoFixo = rendPreview.filter(i => i.ajustavel || i.rendimentoNumero == null).length;
+  document.getElementById('rend-preview-resumo').textContent =
+    `${rendPreview.length} produto(s) lido(s) — ${naoConferidos} ainda sem correspondência confirmada no catálogo, ${semRendimentoFixo} sem rendimento fixo (consumo por aplicação não calculável).`;
+  const tbody = document.querySelector('#rend-preview-tabela tbody');
+  tbody.innerHTML = rendPreview.map((item, idx) => `
+    <tr>
+      <td>
+        <div class="mono" style="font-size:11.5px; margin-bottom:4px;">${escapeHtml(item.nomeOriginal)}</div>
+        <select class="rend-match-select" data-idx="${idx}">${optionsProdutoCatalogo(item.produtoCatalogo)}</select>
+      </td>
+      <td>${escapeHtml(item.apresentacao || '-')}</td>
+      <td>${escapeHtml(item.rendimentoTexto || '-')}</td>
+      <td class="num mono">${item.consumoPorAplicacao != null ? (Math.round(item.consumoPorAplicacao*100)/100) + ' ' + (item.unidadeConsumo||'') : '—'}</td>
+      <td class="mono">${escapeHtml(item.diluicao || '-')}</td>
+      <td class="sub" style="max-width:200px;">${escapeHtml(item.obsRendimento || '-')}</td>
+    </tr>`).join('');
+  tbody.querySelectorAll('.rend-match-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      rendPreview[Number(sel.dataset.idx)].produtoCatalogo = sel.value || null;
+    });
+  });
+}
+
+function renderRspTabela(){
+  const tbody = document.querySelector('#rsp-tabela tbody');
+  const dados = pedidosState.relacaoServicoProduto || [];
+  document.getElementById('rsp-status').textContent = dados.length
+    ? `${dados.length} serviço(s) na relação salva.`
+    : 'Nenhuma relação importada ainda.';
+  tbody.innerHTML = dados.length ? dados.map(item => `
+    <tr>
+      <td>${escapeHtml(item.servico)}</td>
+      <td>${escapeHtml(item.categoria || '-')}</td>
+      <td>${item.produtos.length
+          ? item.produtos.map(p => `<div style="font-size:12.5px;">${escapeHtml(p.produtoCatalogo || p.nomeOriginal)}${!p.produtoCatalogo ? ' <span class="chip pendente" style="padding:1px 6px;">sem correspondência</span>' : ''} <span class="sub" style="margin:0;">(${p.peso}%)</span></div>`).join('')
+          : '<span class="chip" style="background:var(--surface-alt); color:var(--ink-faint);">sem produto associado</span>'}</td>
+      <td class="sub" style="max-width:220px;">${escapeHtml(item.obs || '-')}</td>
+    </tr>`).join('') : '<tr><td colspan="4"><div class="empty">Nenhuma relação Serviço × Produto importada ainda.</div></td></tr>';
+}
+
+function renderRendTabela(){
+  const tbody = document.querySelector('#rend-tabela tbody');
+  const dados = pedidosState.rendimentoProdutos || [];
+  document.getElementById('rend-status').textContent = dados.length
+    ? `${dados.length} produto(s) na tabela de rendimento salva.`
+    : 'Nenhuma tabela importada ainda.';
+  tbody.innerHTML = dados.length ? dados.map(item => `
+    <tr>
+      <td>${escapeHtml(item.produtoCatalogo || item.nomeOriginal)}${!item.produtoCatalogo ? ' <span class="chip pendente" style="padding:1px 6px;">sem correspondência</span>' : ''}</td>
+      <td>${escapeHtml(item.apresentacao || '-')}</td>
+      <td>${escapeHtml(item.rendimentoTexto || '-')}</td>
+      <td class="num mono">${item.consumoPorAplicacao != null ? (Math.round(item.consumoPorAplicacao*100)/100) + ' ' + (item.unidadeConsumo||'') : '—'}</td>
+      <td class="mono">${escapeHtml(item.diluicao || '-')}</td>
+      <td class="sub" style="max-width:200px;">${escapeHtml(item.obsRendimento || '-')}</td>
+    </tr>`).join('') : '<tr><td colspan="6"><div class="empty">Nenhuma tabela de rendimento importada ainda.</div></td></tr>';
+}
+
+function setupConsumo(){
+  const rspArquivo = document.getElementById('rsp-arquivo');
+  const rspBtn = document.getElementById('rsp-processar');
+  rspArquivo.addEventListener('change', () => { rspBtn.disabled = !rspArquivo.files.length; });
+  rspBtn.addEventListener('click', async () => {
+    const file = rspArquivo.files[0];
+    if (!file) return;
+    try{
+      const rows = await parseXlsxRawRows(await file.arrayBuffer());
+      rspPreview = parseRelacaoServicoProdutoRows(rows);
+      if (!rspPreview.length){ toast('Não encontrei nenhum serviço nesse arquivo — confira o formato.', 'error'); rspPreview = null; }
+      renderRspPreview();
+    }catch(err){
+      toast('Não consegui ler esse arquivo: ' + err.message, 'error');
+    }
+  });
+  document.getElementById('rsp-cancelar').addEventListener('click', () => {
+    rspPreview = null; renderRspPreview();
+    rspArquivo.value = ''; rspBtn.disabled = true;
+  });
+  document.getElementById('rsp-confirmar').addEventListener('click', async () => {
+    if (!rspPreview) return;
+    const dados = rspPreview;
+    const ok = await commit(state => { state.relacaoServicoProduto = dados; return state; },
+      `Relação Serviço × Produto salva (${dados.length} serviço(s)).`);
+    if (ok){ rspPreview = null; renderRspPreview(); rspArquivo.value = ''; rspBtn.disabled = true; }
+  });
+
+  const rendArquivo = document.getElementById('rend-arquivo');
+  const rendBtn = document.getElementById('rend-processar');
+  rendArquivo.addEventListener('change', () => { rendBtn.disabled = !rendArquivo.files.length; });
+  rendBtn.addEventListener('click', async () => {
+    const file = rendArquivo.files[0];
+    if (!file) return;
+    try{
+      const rows = await parseXlsxRawRows(await file.arrayBuffer());
+      rendPreview = parseRendimentoRows(rows);
+      if (!rendPreview.length){ toast('Não encontrei nenhum bloco "PRODUTO:" nesse arquivo — confira o formato.', 'error'); rendPreview = null; }
+      renderRendPreview();
+    }catch(err){
+      toast('Não consegui ler esse arquivo: ' + err.message, 'error');
+    }
+  });
+  document.getElementById('rend-cancelar').addEventListener('click', () => {
+    rendPreview = null; renderRendPreview();
+    rendArquivo.value = ''; rendBtn.disabled = true;
+  });
+  document.getElementById('rend-confirmar').addEventListener('click', async () => {
+    if (!rendPreview) return;
+    const dados = rendPreview;
+    const ok = await commit(state => { state.rendimentoProdutos = dados; return state; },
+      `Tabela de rendimento salva (${dados.length} produto(s)).`);
+    if (ok){ rendPreview = null; renderRendPreview(); rendArquivo.value = ''; rendBtn.disabled = true; }
+  });
+}
+
+function renderConsumo(){
+  renderRspTabela();
+  renderRendTabela();
+}
+
 /* =========================== RENDER GERAL =========================== */
 function renderAll(){
   const active = document.querySelector('.navbtn.active');
@@ -2231,6 +2623,7 @@ function renderAll(){
   if (view === 'aprovacao') renderAprovacao();
   if (view === 'export') renderExport();
   if (view === 'relatorios') renderRelatorios();
+  if (view === 'consumo') renderConsumo();
   if (view === 'catalogo') renderCatalogoLista();
   const pend = pedidosState.pedidosBanho.filter(p=>p.status==='Pendente').length;
   const badge = document.getElementById('count-pendentes');
@@ -2257,7 +2650,12 @@ function setupZerar(){
     if (total === 0){ toast('Já não há pedidos no painel.', 'error'); return; }
     const ok = window.confirm(`Isso vai apagar todos os ${total} pedidos salvos e zerar o painel. Essa ação não pode ser desfeita. Confirmar?`);
     if (!ok) return;
-    await commit(state => ({ pedidosBanho: [], nextId: 1, catalogoExtraBanho: state.catalogoExtraBanho || [] }), 'Painel zerado — todos os pedidos foram apagados.');
+    await commit(state => ({
+      pedidosBanho: [], nextId: 1,
+      catalogoExtraBanho: state.catalogoExtraBanho || [],
+      relacaoServicoProduto: state.relacaoServicoProduto || [],
+      rendimentoProdutos: state.rendimentoProdutos || [],
+    }), 'Painel zerado — todos os pedidos foram apagados.');
   });
 }
 
@@ -2389,6 +2787,7 @@ function renderCatalogoLista(){
   setupAprovacao();
   setupExport();
   setupRelatorios();
+  setupConsumo();
   setupZerar();
   setupCatalogoAdmin();
   showView(lerUltimaTela() || 'pedido-banho');
