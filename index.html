@@ -268,6 +268,7 @@
   <div class="navgroup-label">Relatórios</div>
   <button class="navbtn" data-view="relatorios">Relatórios de gastos</button>
   <button class="navbtn" data-view="consumo">Análise de consumo</button>
+  <button class="navbtn" data-view="saida-servicos">Saída de serviços</button>
 
   <div class="navgroup-label">Cadastro</div>
   <button class="navbtn" data-view="catalogo">Catálogo de produtos</button>
@@ -766,6 +767,35 @@
       </table></div>
     </div>
   </section>
+
+  <section class="view" id="view-saida-servicos">
+    <div class="topbar">
+      <div>
+        <h1>Saída de serviços — Banho &amp; Tosa</h1>
+        <p>Quantidade de atendimentos por serviço, direto do histórico de serviços já importado — sem cruzar com produto ou compra.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 style="margin-bottom:2px;">Atendimentos por serviço</h2>
+          <div class="sub" id="ss-status" style="margin-bottom:0;"></div>
+        </div>
+        <div class="dc-filtros">
+          <div><label for="ss-unidade">Unidade</label><select id="ss-unidade"><option value="">Todas</option></select></div>
+          <div><label for="ss-mes">Mês</label><select id="ss-mes"><option value="">Todos</option></select></div>
+        </div>
+      </div>
+
+      <div class="stat-row" id="ss-stats" style="margin:14px 0;"></div>
+
+      <div class="tablewrap" style="max-height:520px; overflow-y:auto;"><table id="ss-tabela">
+        <thead><tr><th>Unidade</th><th>Serviço</th><th>Mês</th><th class="num">Atendimentos</th><th class="num">Porte G/GG</th><th class="num">Valor (R$)</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
 </div>
 
 <div id="toast-root"></div>
@@ -938,7 +968,7 @@ function fillSelect(sel, options, withPlaceholder){
 }
 
 /* =========================== NAVEGAÇÃO =========================== */
-const views = ['pedido-banho','importar','aprovacao','export','relatorios','consumo','catalogo'];
+const views = ['pedido-banho','importar','aprovacao','export','relatorios','consumo','saida-servicos','catalogo'];
 const VIEW_STORAGE_KEY = 'painelNave_ultimaTela';
 function salvarUltimaTela(name){
   try{ localStorage.setItem(VIEW_STORAGE_KEY, name); }catch(e){ /* sem storage disponível, tudo bem */ }
@@ -3653,6 +3683,56 @@ function renderConsumo(){
   renderDcPaineis();
 }
 
+function setupSaidaServicos(){
+  const selUnidade = document.getElementById('ss-unidade');
+  selUnidade.innerHTML = '<option value="">Todas</option>' + UNIDADES.map(u=>`<option value="${escapeHtml(u.nome)}">${escapeHtml(u.nome)}</option>`).join('');
+  selUnidade.addEventListener('change', renderSaidaServicos);
+  document.getElementById('ss-mes').addEventListener('change', renderSaidaServicos);
+}
+
+function renderSaidaServicos(){
+  const dados = pedidosState.historicoServicos || [];
+  const fu = document.getElementById('ss-unidade').value;
+  const fm = document.getElementById('ss-mes').value;
+
+  const meses = [...new Set(dados.map(g=>g.mes))].sort();
+  const fmSel = document.getElementById('ss-mes');
+  const valMAtual = fmSel.value;
+  fmSel.innerHTML = '<option value="">Todos</option>' + meses.map(m=>`<option value="${m}">${nomeMesPt(m)} ${m.split('-')[0]}</option>`).join('');
+  fmSel.value = meses.includes(valMAtual) ? valMAtual : '';
+
+  const linhas = dados.filter(g => g.unidade && (!fu || g.unidade===fu) && (!fm || g.mes===fm));
+
+  const totalAtendimentos = linhas.reduce((s,g)=>s+g.atendimentos,0);
+  const totalGrande = linhas.reduce((s,g)=>s+(g.atendimentosGrande||0),0);
+  const totalValor = linhas.reduce((s,g)=>s+(g.valorTotal||0),0);
+  const servicosDistintos = new Set(linhas.map(g=>g.servico)).size;
+
+  document.getElementById('ss-status').textContent = dados.length
+    ? `${linhas.length} grupo(s) unidade+serviço+mês com os filtros atuais.`
+    : 'Nenhum histórico de serviços importado ainda (confira a aba Análise de Consumo).';
+
+  document.getElementById('ss-stats').innerHTML = `
+    <div class="stat"><span class="n mono">${fmtNum(totalAtendimentos,0)}</span><span class="l">Atendimentos</span></div>
+    <div class="stat"><span class="n mono">${fmtNum(totalGrande,0)}</span><span class="l">Porte Grande/Gigante</span></div>
+    <div class="stat"><span class="n mono">${servicosDistintos}</span><span class="l">Serviços distintos</span></div>
+    <div class="stat"><span class="n mono">${fmtBRL(totalValor)}</span><span class="l">Valor total</span></div>
+  `;
+
+  const linhasOrdenadas = linhas.slice().sort((a,b) =>
+    a.unidade===b.unidade ? (a.servico===b.servico ? (a.mes<b.mes?-1:1) : a.servico.localeCompare(b.servico)) : a.unidade.localeCompare(b.unidade));
+  const tbody = document.querySelector('#ss-tabela tbody');
+  tbody.innerHTML = linhasOrdenadas.length ? linhasOrdenadas.map(g => `
+    <tr>
+      <td>${escapeHtml(g.unidade)}</td>
+      <td>${escapeHtml(g.servico)}</td>
+      <td class="mono">${nomeMesPt(g.mes)} ${g.mes.split('-')[0]}</td>
+      <td class="num mono">${fmtNum(g.atendimentos,0)}</td>
+      <td class="num mono">${fmtNum(g.atendimentosGrande||0,0)}</td>
+      <td class="num mono">${fmtBRL(g.valorTotal||0)}</td>
+    </tr>`).join('') : '<tr><td colspan="6"><div class="empty">Nenhum dado pra esses filtros.</div></td></tr>';
+}
+
 /* =========================== RENDER GERAL =========================== */
 function renderAll(){
   const active = document.querySelector('.navbtn.active');
@@ -3661,6 +3741,7 @@ function renderAll(){
   if (view === 'export') renderExport();
   if (view === 'relatorios') renderRelatorios();
   if (view === 'consumo') renderConsumo();
+  if (view === 'saida-servicos') renderSaidaServicos();
   if (view === 'catalogo') renderCatalogoLista();
   const pend = pedidosState.pedidosBanho.filter(p=>p.status==='Pendente').length;
   const badge = document.getElementById('count-pendentes');
@@ -3827,6 +3908,7 @@ function renderCatalogoLista(){
   setupExport();
   setupRelatorios();
   setupConsumo();
+  setupSaidaServicos();
   setupZerar();
   setupCatalogoAdmin();
   showView(lerUltimaTela() || 'pedido-banho');
