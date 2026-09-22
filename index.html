@@ -190,8 +190,8 @@
   .dc-barra-eixo{position:relative; flex:1; height:20px; background:var(--surface-alt); border-radius:4px; overflow:hidden;}
   .dc-barra-zero{position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--line-strong);}
   .dc-barra-fill{position:absolute; top:2px; bottom:2px; border-radius:4px;}
-  .dc-barra-fill.excesso{background:var(--rejected);}
-  .dc-barra-fill.deficit{background:var(--pending);}
+  .dc-barra-fill.acima{background:var(--approved);}
+  .dc-barra-fill.abaixo{background:var(--pending);}
   .dc-chart{display:flex; align-items:flex-end; gap:16px; height:170px; padding:8px 4px 0; border-bottom:1px solid var(--line); overflow-x:auto;}
   .dc-chart-col{display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; width:44px; height:100%; justify-content:flex-end;}
   .dc-chart-bars{display:flex; align-items:flex-end; gap:3px; height:100%;}
@@ -3278,10 +3278,14 @@ function dcLinhasFiltradas(){
   return linhas.filter(l => (!fu || l.unidade===fu) && (!fm || l.mesUltimaCompra===fm));
 }
 
+// Rendeu acima do esperado = o produto cobriu mais atendimentos do que a
+// compra deveria render — é um sinal bom (mais econômico que o previsto),
+// não um problema. Só "abaixo do esperado" (rendeu menos do que devia até
+// agora) merece atenção.
 function dcStatusDesvio(l){
   if (l.servicosEsperados == null) return { label: 'sem esperado calculado', cls: 'pendente' };
-  if (l.desvioPct > 20) return { label: 'acima do esperado', cls: 'rejeitado' };
   if (l.desvioPct < -20) return { label: 'abaixo do esperado', cls: 'pendente' };
+  if (l.desvioPct > 20) return { label: 'acima do esperado', cls: 'aprovado' };
   return { label: 'dentro do esperado', cls: 'aprovado' };
 }
 
@@ -3338,15 +3342,15 @@ function renderDcRanking(){
   const cont = document.getElementById('dc-ranking-lista');
   cont.innerHTML = aviso + (top.length ? top.map(l => {
     const larguraPct = (Math.abs(l.desvio)/maxAbs)*50;
-    const isExcesso = l.desvio >= 0;
+    const acima = l.desvio >= 0;
     return `<div style="margin-bottom:12px;">
       <div class="row" style="justify-content:space-between; font-size:12.5px; margin-bottom:3px;">
         <span>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras.">estimado</span>' : ''}<span class="sub" style="display:inline;"> — ${escapeHtml(l.unidade)}, desde ${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</span></span>
         <span class="mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio,0)} serviço(s) (${l.desvioPct>=0?'+':''}${fmtNum(l.desvioPct,0)}%)</span>
       </div>
-      <div class="dc-barra-eixo" title="${isExcesso?'Feito acima do esperado pra essa compra':'Feito abaixo do esperado pra essa compra'}">
+      <div class="dc-barra-eixo" title="${acima?'Rendeu mais atendimentos do que o esperado pra essa compra (bom sinal)':'Rendeu menos atendimentos do que o esperado pra essa compra até agora'}">
         <div class="dc-barra-zero"></div>
-        <div class="dc-barra-fill ${isExcesso?'excesso':'deficit'}" style="${isExcesso ? 'left:50%;' : 'right:50%;'} width:${larguraPct}%;"></div>
+        <div class="dc-barra-fill ${acima?'acima':'abaixo'}" style="${acima ? 'left:50%;' : 'right:50%;'} width:${larguraPct}%;"></div>
       </div>
     </div>`;
   }).join('') : '<div class="empty">Nenhum desvio pra ranquear com esses filtros.</div>');
