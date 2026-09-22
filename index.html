@@ -3077,6 +3077,22 @@ function atendimentoEfetivo(produtoCatalogo, hs){
   }
   return hs.atendimentos;
 }
+// Casos em que a última compra registrada claramente não reflete o ritmo
+// real de reposição (só uma compra isolada há vários meses, com uso muito
+// acima do que ela cobriria) — o usuário informa uma quantidade mensal
+// recorrente assumida a partir do mês da última compra, em vez de tratar
+// aquele lançamento como uma compra única.
+const RECORRENCIA_COMPRA_MENSAL = {
+  // Nota do usuário (22/09/2026): considerar 4 pacotes de escova por mês
+  // pra Nave Tatuapé a partir da última compra (mar/2026) — a planilha só
+  // capturou 1 compra, mas o consumo real é mensal.
+  'Nave Tatuapé\u0001Pacote de escovas descartáveis 50 und.': 4,
+};
+function mesesEntre(mesInicio, mesFim){
+  const [y1,m1] = mesInicio.split('-').map(Number);
+  const [y2,m2] = mesFim.split('-').map(Number);
+  return (y2-y1)*12 + (m2-m1) + 1;
+}
 function rendimentoPorCatalogoMap(){
   const m = new Map();
   (pedidosState.rendimentoProdutos||[]).forEach(r => { if (r.produtoCatalogo) m.set(r.produtoCatalogo, r); });
@@ -3253,6 +3269,8 @@ function calcularAnaliseConsumo(){
 // serviços aquela compra deveria render × quantos serviços já foram feitos
 // desde então (até o mês mais recente disponível nos dados).
 function calcularComparativoUltimaCompra(){
+  const mesesComDados = (pedidosState.historicoServicos||[]).map(h=>h.mes);
+  const ultimoMesDados = mesesComDados.length ? mesesComDados.reduce((a,b)=>b>a?b:a) : null;
   const rendPorCatalogo = rendimentoPorCatalogoMap();
   const estimativasCache = new Map();
   function rendimentoDoProduto(produtoCatalogo){
@@ -3309,7 +3327,12 @@ function calcularComparativoUltimaCompra(){
     let servicosFeitos = 0;
     if (porMes) porMes.forEach((v,m) => { if (m >= info.mes) servicosFeitos += v; });
 
-    const servicosEsperados = rendInfo ? info.quantidade * rendInfo.valor : null;
+    const recorrenciaMensal = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto];
+    const quantidadeEfetiva = recorrenciaMensal != null && ultimoMesDados
+      ? recorrenciaMensal * mesesEntre(info.mes, ultimoMesDados)
+      : info.quantidade;
+
+    const servicosEsperados = rendInfo ? quantidadeEfetiva * rendInfo.valor : null;
     const desvio = servicosEsperados != null ? servicosFeitos - servicosEsperados : null;
     const desvioPct = servicosEsperados > 0.001 ? (desvio/servicosEsperados)*100 : null;
 
@@ -3317,6 +3340,7 @@ function calcularComparativoUltimaCompra(){
       unidade, produto, mesUltimaCompra: info.mes, quantidadeUltimaCompra: info.quantidade,
       servicosEsperados, servicosFeitos, desvio, desvioPct,
       estimado: rendInfo ? rendInfo.estimado : false,
+      recorrencia: recorrenciaMensal != null,
     });
   });
 
@@ -3370,7 +3394,7 @@ function renderDcTabela(){
     const st = dcStatusDesvio(l);
     return `<tr>
       <td>${escapeHtml(l.unidade)}</td>
-      <td>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras (produto sem rendimento fixo na planilha original).">estimado</span>' : ''}</td>
+      <td>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras (produto sem rendimento fixo na planilha original).">estimado</span>' : ''}${l.recorrencia ? ' <span class="chip obs" style="padding:1px 6px;" title="Compra tratada como recorrente mensal (ajustado manualmente) em vez de único lançamento — a planilha provavelmente não capturou todas as compras dessa unidade.">recorrência ajustada</span>' : ''}</td>
       <td class="mono">${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</td>
       <td class="num mono">${l.servicosEsperados==null ? '—' : fmtNum(l.servicosEsperados, 0)}</td>
       <td class="num mono">${fmtNum(l.servicosFeitos, 0)}</td>
