@@ -179,6 +179,30 @@
   .stat .l{font-size:11.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em;}
   .stat-row{display:flex; gap:28px; flex-wrap:wrap;}
 
+  .dc-tabs{display:flex; gap:6px; margin:14px 0; flex-wrap:wrap;}
+  .dc-tabbtn{padding:6px 14px; border-radius:99px; border:1px solid var(--line-strong); background:transparent; color:var(--ink-soft); font-size:12.5px; font-weight:600; cursor:pointer;}
+  .dc-tabbtn:hover{background:var(--surface-alt); color:var(--ink);}
+  .dc-tabbtn.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  .dc-filtros{display:flex; gap:18px; align-items:center; flex-wrap:wrap;}
+  .dc-filtros label{display:block; font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px;}
+  .dc-painel{display:none;}
+  .dc-painel.active{display:block;}
+  .dc-barra-eixo{position:relative; flex:1; height:20px; background:var(--surface-alt); border-radius:4px; overflow:hidden;}
+  .dc-barra-zero{position:absolute; top:0; bottom:0; left:50%; width:1px; background:var(--line-strong);}
+  .dc-barra-fill{position:absolute; top:2px; bottom:2px; border-radius:4px;}
+  .dc-barra-fill.excesso{background:var(--rejected);}
+  .dc-barra-fill.deficit{background:var(--pending);}
+  .dc-chart{display:flex; align-items:flex-end; gap:16px; height:170px; padding:8px 4px 0; border-bottom:1px solid var(--line); overflow-x:auto;}
+  .dc-chart-col{display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; width:44px; height:100%; justify-content:flex-end;}
+  .dc-chart-bars{display:flex; align-items:flex-end; gap:3px; height:100%;}
+  .dc-chart-bar{width:14px; border-radius:3px 3px 0 0;}
+  .dc-chart-bar.esperado{background:var(--ink-faint);}
+  .dc-chart-bar.real{background:var(--accent);}
+  .dc-chart-label{font-size:10.5px; color:var(--ink-faint);}
+  .dc-legend{display:flex; gap:16px; margin-top:10px; font-size:11.5px; color:var(--ink-soft);}
+  .dc-legend-item{display:flex; align-items:center; gap:6px;}
+  .dc-legend-swatch{width:10px; height:10px; border-radius:3px;}
+
   .barlist{display:flex; flex-direction:column; gap:8px;}
   .barlist .barrow{display:grid; grid-template-columns:70px 1fr 60px; gap:10px; align-items:center; font-size:12px;}
   .barlist .track{height:8px; background:var(--surface-alt); border-radius:99px; overflow:hidden;}
@@ -570,7 +594,48 @@
       </div>
     </div>
     <div class="readonly-banner show" style="background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong);">
-      <strong>Em construção por etapas.</strong> O relatório comparativo (esperado × real, por unidade, com desvio e ranking) ainda depende de uma base que falta ser importada: <strong>histórico de saída/venda de produtos</strong>. O <strong>histórico de compras</strong> e o <strong>histórico de serviços realizados</strong> já estão disponíveis abaixo. Por enquanto esta tela guarda e confere as bases de referência (Serviço × Produto, rendimento/diluição, compras e serviços) que vão alimentar o cálculo do consumo esperado assim que a saída de produtos chegar. Nenhum número de consumo esperado × real é calculado ainda.
+      <strong>Primeira versão do relatório comparativo.</strong> O <strong>esperado</strong> é calculado cruzando o histórico de serviços realizados com a Relação Serviço × Produto e a Tabela de Rendimento (quantos atendimentos cada pacote/frasco rende). O <strong>real</strong> é o Histórico de Compras — como não temos um histórico de saída/baixa de estoque, compra é usada como aproximação do consumo (pode haver defasagem por compra em lote/estoque). Pontos em aberto: 3 produtos de dosagem variável (Higiene dos Ouvidos/Olhos, Extra Soft) não entram no cálculo por não terem um rendimento fixo; serviços sem produto associado na relação (tosas, taxas, leva-e-traz etc.) não geram consumo esperado; compras de Enfeites ainda não têm aba própria.
+    </div>
+
+    <div class="card" id="dc-card">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 style="margin-bottom:2px;">Relatório comparativo — consumo esperado × comprado</h2>
+          <div class="sub" id="dc-status" style="margin-bottom:0;"></div>
+        </div>
+        <div class="dc-filtros">
+          <div><label for="dc-unidade">Unidade</label><select id="dc-unidade"><option value="">Todas</option></select></div>
+          <div><label for="dc-mes">Mês</label><select id="dc-mes"><option value="">Todos</option></select></div>
+        </div>
+      </div>
+
+      <div class="dc-tabs">
+        <button class="dc-tabbtn active" data-painel="tabela" type="button">Tabela detalhada</button>
+        <button class="dc-tabbtn" data-painel="ranking" type="button">Ranking de desvios</button>
+        <button class="dc-tabbtn" data-painel="dashboard" type="button">Dashboard resumo</button>
+      </div>
+
+      <div class="dc-painel active" id="dc-painel-tabela">
+        <div class="tablewrap" style="max-height:520px; overflow-y:auto;"><table id="dc-tabela">
+          <thead><tr><th>Unidade</th><th>Mês</th><th>Produto</th><th class="num">Esperado (pacotes)</th><th class="num">Comprado (pacotes)</th><th class="num">Desvio</th><th class="num">Desvio %</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+
+      <div class="dc-painel" id="dc-painel-ranking">
+        <p class="sub" style="margin-bottom:12px;">Maiores desvios absolutos (comprado − esperado), até 30 combinações unidade + mês + produto.</p>
+        <div id="dc-ranking-lista"></div>
+      </div>
+
+      <div class="dc-painel" id="dc-painel-dashboard">
+        <div class="stat-row" id="dc-stats"></div>
+        <h2 style="font-size:13px; margin:20px 0 6px;">Esperado × comprado por mês (R$, unidade(s) filtrada(s))</h2>
+        <div class="dc-chart" id="dc-chart"></div>
+        <div class="dc-legend">
+          <div class="dc-legend-item"><span class="dc-legend-swatch" style="background:var(--ink-faint);"></span>Esperado (calculado)</div>
+          <div class="dc-legend-item"><span class="dc-legend-swatch" style="background:var(--accent);"></span>Comprado (real)</div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -2983,7 +3048,227 @@ function renderHsTabela(){
     </tr>`).join('') : '<tr><td colspan="3"><div class="empty">Nenhum histórico de serviços importado ainda.</div></td></tr>';
 }
 
+/* --- Relatório comparativo: consumo esperado × comprado ---
+   Esperado = Histórico de Serviços × Relação Serviço×Produto × Tabela de
+   Rendimento (atendimentos × peso% / aplicações por pacote = "pacotes
+   equivalentes"). Real = Histórico de Compras (mesma unidade: pacotes). */
+const ALIASES_SERVICO_RSP = {
+  // Erro de digitação no export do sistema de agendamento (1 atendimento).
+  'HIDRATACAO WILLIAN GALHARDE (RPOMOCIONAL)': 'HIDRATACAO WILLIAN GALHARDE (PROMOCIONAL)',
+};
+function rendimentoPorCatalogoMap(){
+  const m = new Map();
+  (pedidosState.rendimentoProdutos||[]).forEach(r => { if (r.produtoCatalogo) m.set(r.produtoCatalogo, r); });
+  return m;
+}
+function valorUnitarioMedioPorProduto(){
+  const acum = new Map();
+  (pedidosState.historicoCompras||[]).forEach(c => {
+    if (!c.produtoCatalogo || !c.quantidade) return;
+    if (!acum.has(c.produtoCatalogo)) acum.set(c.produtoCatalogo, {valor:0, qtd:0});
+    const a = acum.get(c.produtoCatalogo);
+    a.valor += c.valorTotal || 0;
+    a.qtd += c.quantidade;
+  });
+  const m = new Map();
+  acum.forEach((a,k) => { if (a.qtd > 0) m.set(k, a.valor / a.qtd); });
+  return m;
+}
+function calcularAnaliseConsumo(){
+  const rspPorServicoNorm = new Map();
+  (pedidosState.relacaoServicoProduto||[]).forEach(r => rspPorServicoNorm.set(normalizarNomeParaMatch(r.servico), r));
+  const rendPorCatalogo = rendimentoPorCatalogoMap();
+
+  const linhasMap = new Map();
+  function linha(unidade, mes, produto){
+    const k = unidade + '\u0001' + mes + '\u0001' + produto;
+    if (!linhasMap.has(k)) linhasMap.set(k, { unidade, mes, produto, esperado: 0, real: 0 });
+    return linhasMap.get(k);
+  }
+
+  const servicosSemRsp = new Map();
+  const produtosDosagemVariavel = new Set();
+
+  (pedidosState.historicoServicos||[]).forEach(hs => {
+    if (!hs.unidade) return;
+    const norm = normalizarNomeParaMatch(hs.servico);
+    const chaveNorm = ALIASES_SERVICO_RSP[norm] || norm;
+    const rsp = rspPorServicoNorm.get(chaveNorm);
+    if (!rsp || rsp.semProduto){
+      servicosSemRsp.set(hs.servico, (servicosSemRsp.get(hs.servico)||0) + hs.atendimentos);
+      return;
+    }
+    rsp.produtos.forEach(p => {
+      if (!p.produtoCatalogo) return;
+      const rend = rendPorCatalogo.get(p.produtoCatalogo);
+      if (!rend || !rend.rendimentoNumero){ produtosDosagemVariavel.add(p.produtoCatalogo); return; }
+      const pacotes = hs.atendimentos * (p.peso/100) / rend.rendimentoNumero;
+      linha(hs.unidade, hs.mes, p.produtoCatalogo).esperado += pacotes;
+    });
+  });
+
+  (pedidosState.historicoCompras||[]).forEach(hc => {
+    if (!hc.unidade || !hc.produtoCatalogo) return;
+    linha(hc.unidade, hc.mes, hc.produtoCatalogo).real += hc.quantidade || 0;
+  });
+
+  const valorMedio = valorUnitarioMedioPorProduto();
+  const linhas = [...linhasMap.values()].map(l => {
+    const desvio = l.real - l.esperado;
+    const desvioPct = l.esperado > 0.001 ? (desvio/l.esperado)*100 : (l.real>0 ? null : 0);
+    const valorUnit = valorMedio.get(l.produto);
+    return {
+      ...l, desvio, desvioPct,
+      valorEsperadoRs: valorUnit!=null ? l.esperado*valorUnit : null,
+      valorRealRs: valorUnit!=null ? l.real*valorUnit : null,
+    };
+  });
+
+  return { linhas, servicosSemRsp, produtosDosagemVariavel };
+}
+
+function dcLinhasFiltradas(){
+  const { linhas } = calcularAnaliseConsumo();
+  const fu = document.getElementById('dc-unidade').value;
+  const fm = document.getElementById('dc-mes').value;
+  return linhas.filter(l => (!fu || l.unidade===fu) && (!fm || l.mes===fm));
+}
+
+function dcStatusDesvio(l){
+  if (l.esperado <= 0.001) return l.real > 0 ? { label: 'sem esperado calculado', cls: 'pendente' } : null;
+  if (l.desvioPct > 20) return { label: 'acima do esperado', cls: 'rejeitado' };
+  if (l.desvioPct < -20) return { label: 'abaixo do esperado', cls: 'pendente' };
+  return { label: 'dentro do esperado', cls: 'aprovado' };
+}
+
+function renderDcFiltros(){
+  const fu = document.getElementById('dc-unidade');
+  const fm = document.getElementById('dc-mes');
+  const valUAtual = fu.value, valMAtual = fm.value;
+  const { linhas } = calcularAnaliseConsumo();
+  const unidades = [...new Set(linhas.map(l=>l.unidade))].sort();
+  const meses = [...new Set(linhas.map(l=>l.mes))].sort();
+  fu.innerHTML = '<option value="">Todas</option>' + unidades.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+  fm.innerHTML = '<option value="">Todos</option>' + meses.map(m=>`<option value="${m}">${nomeMesPt(m)} ${m.split('-')[0]}</option>`).join('');
+  fu.value = unidades.includes(valUAtual) ? valUAtual : '';
+  fm.value = meses.includes(valMAtual) ? valMAtual : '';
+}
+
+function renderDcStatus(){
+  const total = calcularAnaliseConsumo().linhas.length;
+  const filtradas = dcLinhasFiltradas().length;
+  document.getElementById('dc-status').textContent = total
+    ? (filtradas===total ? `${total} combinação(ões) unidade + mês + produto no comparativo.` : `${filtradas} de ${total} combinação(ões) com os filtros atuais.`)
+    : 'Ainda não há dados suficientes pra calcular o comparativo (confira se a Relação Serviço × Produto, a Tabela de Rendimento, o Histórico de Compras e o Histórico de Serviços já foram salvos acima).';
+}
+
+function renderDcTabela(){
+  const linhas = dcLinhasFiltradas().sort((a,b) =>
+    a.unidade===b.unidade ? (a.mes===b.mes ? a.produto.localeCompare(b.produto) : (a.mes<b.mes?-1:1)) : a.unidade.localeCompare(b.unidade));
+  const tbody = document.querySelector('#dc-tabela tbody');
+  tbody.innerHTML = linhas.length ? linhas.map(l => {
+    const st = dcStatusDesvio(l);
+    return `<tr>
+      <td>${escapeHtml(l.unidade)}</td>
+      <td class="mono">${escapeHtml(l.mes)}</td>
+      <td>${escapeHtml(l.produto)}</td>
+      <td class="num mono">${fmtNum(l.esperado, 1)}</td>
+      <td class="num mono">${fmtNum(l.real, 1)}</td>
+      <td class="num mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio, 1)}</td>
+      <td class="num mono">${l.desvioPct==null?'-':(l.desvioPct>=0?'+':'')+fmtNum(l.desvioPct,0)+'%'}</td>
+      <td>${st ? `<span class="chip ${st.cls}" style="padding:1px 8px;">${st.label}</span>` : '-'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8"><div class="empty">Nenhum dado pra esses filtros ainda.</div></td></tr>';
+}
+
+function renderDcRanking(){
+  // só ranqueia combinações com esperado calculável — sem isso o desvio é só
+  // "quanto foi comprado" (produto sem RSP/rendimento fixo), não um desvio real.
+  const todasFiltradas = dcLinhasFiltradas();
+  const linhas = todasFiltradas.filter(l => l.esperado > 0.001);
+  const semEsperadoCount = todasFiltradas.filter(l => l.esperado <= 0.001 && l.real > 0).length;
+  const top = linhas.slice().sort((a,b) => Math.abs(b.desvio) - Math.abs(a.desvio)).slice(0, 30);
+  const maxAbs = Math.max(1, ...top.map(l => Math.abs(l.desvio)));
+  const aviso = semEsperadoCount
+    ? `<p class="sub" style="margin-bottom:12px;">${semEsperadoCount} combinação(ões) comprada(s) sem esperado calculável (produto sem entrada na Relação Serviço × Produto ou com dosagem variável) ficaram de fora deste ranking — aparecem na Tabela detalhada com o status "sem esperado calculado".</p>`
+    : '';
+  const cont = document.getElementById('dc-ranking-lista');
+  cont.innerHTML = aviso + (top.length ? top.map(l => {
+    const larguraPct = (Math.abs(l.desvio)/maxAbs)*50;
+    const isExcesso = l.desvio >= 0;
+    return `<div style="margin-bottom:12px;">
+      <div class="row" style="justify-content:space-between; font-size:12.5px; margin-bottom:3px;">
+        <span>${escapeHtml(l.produto)}<span class="sub" style="display:inline;"> — ${escapeHtml(l.unidade)}, ${nomeMesPt(l.mes)} ${l.mes.split('-')[0]}</span></span>
+        <span class="mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio,1)} pacote(s) (${l.desvioPct>=0?'+':''}${fmtNum(l.desvioPct,0)}%)</span>
+      </div>
+      <div class="dc-barra-eixo" title="${isExcesso?'Comprado acima do esperado':'Comprado abaixo do esperado'}">
+        <div class="dc-barra-zero"></div>
+        <div class="dc-barra-fill ${isExcesso?'excesso':'deficit'}" style="${isExcesso ? 'left:50%;' : 'right:50%;'} width:${larguraPct}%;"></div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty">Nenhum desvio pra ranquear com esses filtros.</div>');
+}
+
+function renderDcDashboard(){
+  const linhas = dcLinhasFiltradas();
+  const totalEsperadoRs = linhas.reduce((s,l)=>s+(l.valorEsperadoRs||0),0);
+  const totalRealRs = linhas.reduce((s,l)=>s+(l.valorRealRs||0),0);
+  const desvioRs = totalRealRs - totalEsperadoRs;
+  const desvioPctGeral = totalEsperadoRs > 0.01 ? (desvioRs/totalEsperadoRs)*100 : null;
+  const combosAltoDesvio = linhas.filter(l => l.esperado>0.001 && Math.abs(l.desvioPct)>20).length;
+  const { servicosSemRsp } = calcularAnaliseConsumo();
+  const atendimentosSemRsp = [...servicosSemRsp.values()].reduce((s,n)=>s+n,0);
+
+  document.getElementById('dc-stats').innerHTML = `
+    <div class="stat"><span class="n mono">${fmtBRL(totalEsperadoRs)}</span><span class="l">Esperado (calculado)</span></div>
+    <div class="stat"><span class="n mono">${fmtBRL(totalRealRs)}</span><span class="l">Comprado (real)</span></div>
+    <div class="stat"><span class="n mono">${desvioRs>=0?'+':''}${fmtBRL(desvioRs)}${desvioPctGeral!=null?` (${desvioPctGeral>=0?'+':''}${fmtNum(desvioPctGeral,0)}%)`:''}</span><span class="l">Desvio</span></div>
+    <div class="stat"><span class="n mono">${combosAltoDesvio}</span><span class="l">Combinações com desvio acima de 20%</span></div>
+    <div class="stat"><span class="n mono">${fmtNum(atendimentosSemRsp,0)}</span><span class="l">Atendimentos sem produto associado (RSP)</span></div>
+  `;
+
+  const fu = document.getElementById('dc-unidade').value;
+  const { linhas: todasLinhas } = calcularAnaliseConsumo();
+  const porMes = new Map();
+  todasLinhas.filter(l => !fu || l.unidade===fu).forEach(l => {
+    if (!porMes.has(l.mes)) porMes.set(l.mes, {esperado:0, real:0});
+    const m = porMes.get(l.mes);
+    m.esperado += l.valorEsperadoRs || 0;
+    m.real += l.valorRealRs || 0;
+  });
+  const meses = [...porMes.keys()].sort();
+  const maxVal = Math.max(1, ...meses.map(m => Math.max(porMes.get(m).esperado, porMes.get(m).real)));
+  document.getElementById('dc-chart').innerHTML = meses.length ? meses.map(m => {
+    const d = porMes.get(m);
+    const hE = Math.round((d.esperado/maxVal)*140);
+    const hR = Math.round((d.real/maxVal)*140);
+    return `<div class="dc-chart-col">
+      <div class="dc-chart-bars" title="${escapeHtml(nomeMesPt(m))} ${m.split('-')[0]} — esperado ${fmtBRL(d.esperado)}, comprado ${fmtBRL(d.real)}">
+        <div class="dc-chart-bar esperado" style="height:${hE}px;"></div>
+        <div class="dc-chart-bar real" style="height:${hR}px;"></div>
+      </div>
+      <div class="dc-chart-label mono">${escapeHtml(nomeMesPt(m).slice(0,3))}</div>
+    </div>`;
+  }).join('') : '<div class="empty">Sem dados pra esse período.</div>';
+}
+
+function renderDcPaineis(){
+  renderDcStatus();
+  renderDcTabela();
+  renderDcRanking();
+  renderDcDashboard();
+}
+
 function setupConsumo(){
+  document.querySelectorAll('.dc-tabbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.dc-tabbtn').forEach(b => b.classList.toggle('active', b===btn));
+      document.querySelectorAll('.dc-painel').forEach(p => p.classList.toggle('active', p.id === 'dc-painel-'+btn.dataset.painel));
+    });
+  });
+  document.getElementById('dc-unidade').addEventListener('change', renderDcPaineis);
+  document.getElementById('dc-mes').addEventListener('change', renderDcPaineis);
+
   const rspArquivo = document.getElementById('rsp-arquivo');
   const rspBtn = document.getElementById('rsp-processar');
   rspArquivo.addEventListener('change', () => { rspBtn.disabled = !rspArquivo.files.length; });
@@ -3142,6 +3427,8 @@ function renderConsumo(){
   renderRendTabela();
   renderHcTabela();
   renderHsTabela();
+  renderDcFiltros();
+  renderDcPaineis();
 }
 
 /* =========================== RENDER GERAL =========================== */
