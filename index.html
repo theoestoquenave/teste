@@ -3088,6 +3088,15 @@ function rendimentoPorCatalogoMap(){
 // do produto do catálogo, sem precisar de correspondência. Só entra como
 // complemento: se o mês+unidade já tem Histórico de Compras importado, a
 // planilha continua sendo a fonte (evita contar a mesma compra duas vezes).
+// Pedido é aprovado no painel perto do fim de um mês pra cobrir o consumo
+// do mês seguinte (nota do usuário 22/09/2026: "os pedidos aprovados no
+// final de agosto são as compras de setembro") — por isso a compra conta
+// pro mês seguinte ao campo "mes" do pedido, não pro mês do pedido em si.
+function mesSeguinte(mes){
+  const [ano, m] = mes.split('-').map(Number);
+  const d = new Date(Date.UTC(ano, m, 1));
+  return d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0');
+}
 function comprasReaisMescladas(){
   const historico = pedidosState.historicoCompras || [];
   const mesesComHistoricoPorUnidade = new Set(historico.filter(h=>h.unidade && h.mes).map(h => h.unidade + '\u0001' + h.mes));
@@ -3095,10 +3104,11 @@ function comprasReaisMescladas(){
   const doPainel = new Map();
   (pedidosState.pedidosBanho || []).forEach(p => {
     if (p.status !== 'Aprovado' || !p.unidade || !p.mes) return;
-    if (mesesComHistoricoPorUnidade.has(p.unidade + '\u0001' + p.mes)) return;
+    const mesCompra = mesSeguinte(p.mes);
+    if (mesesComHistoricoPorUnidade.has(p.unidade + '\u0001' + mesCompra)) return;
     (p.itens||[]).forEach(it => {
       if (!it.produto || !it.quantidade) return;
-      const k = p.unidade + '\u0001' + p.mes + '\u0001' + it.produto;
+      const k = p.unidade + '\u0001' + mesCompra + '\u0001' + it.produto;
       doPainel.set(k, (doPainel.get(k)||0) + it.quantidade);
     });
   });
