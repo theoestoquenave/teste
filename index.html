@@ -616,14 +616,15 @@
       </div>
 
       <div class="dc-painel active" id="dc-painel-tabela">
+        <p class="sub" style="margin-bottom:12px;">Uma linha por unidade + produto, olhando a compra mais recente: quantos serviços ela deveria render × quantos já foram feitos desde então.</p>
         <div class="tablewrap" style="max-height:520px; overflow-y:auto;"><table id="dc-tabela">
-          <thead><tr><th>Unidade</th><th>Mês</th><th>Produto</th><th class="num">Esperado (pacotes)</th><th class="num">Comprado (pacotes)</th><th class="num">Desvio</th><th class="num">Desvio %</th><th>Status</th></tr></thead>
+          <thead><tr><th>Unidade</th><th>Produto</th><th>Última compra</th><th class="num">Serviços esperados</th><th class="num">Serviços feitos</th><th class="num">Desvio</th><th>Status</th></tr></thead>
           <tbody></tbody>
         </table></div>
       </div>
 
       <div class="dc-painel" id="dc-painel-ranking">
-        <p class="sub" style="margin-bottom:12px;">Maiores desvios absolutos (comprado − esperado), até 30 combinações unidade + mês + produto.</p>
+        <p class="sub" style="margin-bottom:12px;">Maiores desvios absolutos (serviços feitos − esperados desde a última compra), até 30 combinações unidade + produto.</p>
         <div id="dc-ranking-lista"></div>
       </div>
 
@@ -3195,15 +3196,90 @@ function calcularAnaliseConsumo(){
   return { linhas, servicosSemRsp, produtosDosagemVariavel, produtosComRendimentoEstimado };
 }
 
+// Relatório simplificado: em vez de um valor por mês, cada linha é
+// "unidade + produto", olhando só pra última compra registrada — quantos
+// serviços aquela compra deveria render × quantos serviços já foram feitos
+// desde então (até o mês mais recente disponível nos dados).
+function calcularComparativoUltimaCompra(){
+  const rendPorCatalogo = rendimentoPorCatalogoMap();
+  const estimativasCache = new Map();
+  function rendimentoDoProduto(produtoCatalogo){
+    const rend = rendPorCatalogo.get(produtoCatalogo);
+    if (rend && rend.rendimentoNumero) return { valor: rend.rendimentoNumero, estimado: false };
+    if (!estimativasCache.has(produtoCatalogo)) estimativasCache.set(produtoCatalogo, estimarRendimentoEmpirico(produtoCatalogo));
+    const est = estimativasCache.get(produtoCatalogo);
+    return est ? { valor: est.rendimentoNumero, estimado: true } : null;
+  }
+
+  const ultimaCompraPorUnidadeProduto = new Map();
+  (pedidosState.historicoCompras||[]).forEach(hc => {
+    if (!hc.unidade || !hc.produtoCatalogo || !hc.quantidade) return;
+    const k = hc.unidade + '\u0001' + hc.produtoCatalogo;
+    const atual = ultimaCompraPorUnidadeProduto.get(k);
+    if (!atual || hc.mes > atual.mes) ultimaCompraPorUnidadeProduto.set(k, { mes: hc.mes, quantidade: hc.quantidade });
+    else if (hc.mes === atual.mes) atual.quantidade += hc.quantidade;
+  });
+
+  const pesosPorProduto = new Map();
+  (pedidosState.relacaoServicoProduto||[]).forEach(r => {
+    r.produtos.forEach(p => {
+      if (!p.produtoCatalogo) return;
+      if (!pesosPorProduto.has(p.produtoCatalogo)) pesosPorProduto.set(p.produtoCatalogo, new Map());
+      pesosPorProduto.get(p.produtoCatalogo).set(normalizarNomeParaMatch(r.servico), p.peso);
+    });
+  });
+  const atendPorProdutoUnidadeMes = new Map();
+  (pedidosState.historicoServicos||[]).forEach(hs => {
+    if (!hs.unidade) return;
+    const norm = normalizarNomeParaMatch(hs.servico);
+    const chaveNorm = ALIASES_SERVICO_RSP[norm] || norm;
+    pesosPorProduto.forEach((pesoPorServico, produto) => {
+      const peso = pesoPorServico.get(chaveNorm);
+      if (peso == null) return;
+      if (!atendPorProdutoUnidadeMes.has(produto)) atendPorProdutoUnidadeMes.set(produto, new Map());
+      const porUnidade = atendPorProdutoUnidadeMes.get(produto);
+      if (!porUnidade.has(hs.unidade)) porUnidade.set(hs.unidade, new Map());
+      const porMes = porUnidade.get(hs.unidade);
+      porMes.set(hs.mes, (porMes.get(hs.mes)||0) + hs.atendimentos*(peso/100));
+    });
+  });
+
+  const linhas = [];
+  ultimaCompraPorUnidadeProduto.forEach((info, chave) => {
+    const [unidade, produto] = chave.split('\u0001');
+    // só calcula esperado/feito se o produto tem pelo menos um serviço
+    // associado na Relação Serviço×Produto — sem isso "serviços feitos"
+    // nunca sai de zero e o desvio vira sempre -100%, o que não é real.
+    const temServicoAssociado = pesosPorProduto.has(produto);
+    const rendInfo = temServicoAssociado ? rendimentoDoProduto(produto) : null;
+    const porUnidade = atendPorProdutoUnidadeMes.get(produto);
+    const porMes = porUnidade ? porUnidade.get(unidade) : null;
+    let servicosFeitos = 0;
+    if (porMes) porMes.forEach((v,m) => { if (m >= info.mes) servicosFeitos += v; });
+
+    const servicosEsperados = rendInfo ? info.quantidade * rendInfo.valor : null;
+    const desvio = servicosEsperados != null ? servicosFeitos - servicosEsperados : null;
+    const desvioPct = servicosEsperados > 0.001 ? (desvio/servicosEsperados)*100 : null;
+
+    linhas.push({
+      unidade, produto, mesUltimaCompra: info.mes, quantidadeUltimaCompra: info.quantidade,
+      servicosEsperados, servicosFeitos, desvio, desvioPct,
+      estimado: rendInfo ? rendInfo.estimado : false,
+    });
+  });
+
+  return linhas;
+}
+
 function dcLinhasFiltradas(){
-  const { linhas } = calcularAnaliseConsumo();
+  const linhas = calcularComparativoUltimaCompra();
   const fu = document.getElementById('dc-unidade').value;
   const fm = document.getElementById('dc-mes').value;
-  return linhas.filter(l => (!fu || l.unidade===fu) && (!fm || l.mes===fm));
+  return linhas.filter(l => (!fu || l.unidade===fu) && (!fm || l.mesUltimaCompra===fm));
 }
 
 function dcStatusDesvio(l){
-  if (l.esperado <= 0.001) return l.real > 0 ? { label: 'sem esperado calculado', cls: 'pendente' } : null;
+  if (l.servicosEsperados == null) return { label: 'sem esperado calculado', cls: 'pendente' };
   if (l.desvioPct > 20) return { label: 'acima do esperado', cls: 'rejeitado' };
   if (l.desvioPct < -20) return { label: 'abaixo do esperado', cls: 'pendente' };
   return { label: 'dentro do esperado', cls: 'aprovado' };
@@ -3213,9 +3289,9 @@ function renderDcFiltros(){
   const fu = document.getElementById('dc-unidade');
   const fm = document.getElementById('dc-mes');
   const valUAtual = fu.value, valMAtual = fm.value;
-  const { linhas } = calcularAnaliseConsumo();
+  const linhas = calcularComparativoUltimaCompra();
   const unidades = [...new Set(linhas.map(l=>l.unidade))].sort();
-  const meses = [...new Set(linhas.map(l=>l.mes))].sort();
+  const meses = [...new Set(linhas.map(l=>l.mesUltimaCompra))].sort();
   fu.innerHTML = '<option value="">Todas</option>' + unidades.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
   fm.innerHTML = '<option value="">Todos</option>' + meses.map(m=>`<option value="${m}">${nomeMesPt(m)} ${m.split('-')[0]}</option>`).join('');
   fu.value = unidades.includes(valUAtual) ? valUAtual : '';
@@ -3223,42 +3299,41 @@ function renderDcFiltros(){
 }
 
 function renderDcStatus(){
-  const total = calcularAnaliseConsumo().linhas.length;
+  const total = calcularComparativoUltimaCompra().length;
   const filtradas = dcLinhasFiltradas().length;
   document.getElementById('dc-status').textContent = total
-    ? (filtradas===total ? `${total} combinação(ões) unidade + mês + produto no comparativo.` : `${filtradas} de ${total} combinação(ões) com os filtros atuais.`)
+    ? (filtradas===total ? `${total} produto(s) × unidade no comparativo, olhando a última compra de cada um.` : `${filtradas} de ${total} produto(s) × unidade com os filtros atuais.`)
     : 'Ainda não há dados suficientes pra calcular o comparativo (confira se a Relação Serviço × Produto, a Tabela de Rendimento, o Histórico de Compras e o Histórico de Serviços já foram salvos acima).';
 }
 
 function renderDcTabela(){
   const linhas = dcLinhasFiltradas().sort((a,b) =>
-    a.unidade===b.unidade ? (a.mes===b.mes ? a.produto.localeCompare(b.produto) : (a.mes<b.mes?-1:1)) : a.unidade.localeCompare(b.unidade));
+    a.unidade===b.unidade ? a.produto.localeCompare(b.produto) : a.unidade.localeCompare(b.unidade));
   const tbody = document.querySelector('#dc-tabela tbody');
   tbody.innerHTML = linhas.length ? linhas.map(l => {
     const st = dcStatusDesvio(l);
     return `<tr>
       <td>${escapeHtml(l.unidade)}</td>
-      <td class="mono">${escapeHtml(l.mes)}</td>
       <td>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras (produto sem rendimento fixo na planilha original).">estimado</span>' : ''}</td>
-      <td class="num mono">${fmtNum(l.esperado, 1)}</td>
-      <td class="num mono">${fmtNum(l.real, 1)}</td>
-      <td class="num mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio, 1)}</td>
-      <td class="num mono">${l.desvioPct==null?'-':(l.desvioPct>=0?'+':'')+fmtNum(l.desvioPct,0)+'%'}</td>
+      <td class="mono">${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</td>
+      <td class="num mono">${l.servicosEsperados==null ? '—' : fmtNum(l.servicosEsperados, 0)}</td>
+      <td class="num mono">${fmtNum(l.servicosFeitos, 0)}</td>
+      <td class="num mono">${l.desvio==null ? '-' : `${l.desvio>=0?'+':''}${fmtNum(l.desvio,0)} (${l.desvioPct>=0?'+':''}${fmtNum(l.desvioPct,0)}%)`}</td>
       <td>${st ? `<span class="chip ${st.cls}" style="padding:1px 8px;">${st.label}</span>` : '-'}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="8"><div class="empty">Nenhum dado pra esses filtros ainda.</div></td></tr>';
+  }).join('') : '<tr><td colspan="7"><div class="empty">Nenhum dado pra esses filtros ainda.</div></td></tr>';
 }
 
 function renderDcRanking(){
-  // só ranqueia combinações com esperado calculável — sem isso o desvio é só
-  // "quanto foi comprado" (produto sem RSP/rendimento fixo), não um desvio real.
+  // só ranqueia produtos com esperado calculável — sem isso o desvio é só
+  // "quantos serviços já rodaram", não um desvio real.
   const todasFiltradas = dcLinhasFiltradas();
-  const linhas = todasFiltradas.filter(l => l.esperado > 0.001);
-  const semEsperadoCount = todasFiltradas.filter(l => l.esperado <= 0.001 && l.real > 0).length;
+  const linhas = todasFiltradas.filter(l => l.desvio != null);
+  const semEsperadoCount = todasFiltradas.length - linhas.length;
   const top = linhas.slice().sort((a,b) => Math.abs(b.desvio) - Math.abs(a.desvio)).slice(0, 30);
   const maxAbs = Math.max(1, ...top.map(l => Math.abs(l.desvio)));
   const aviso = semEsperadoCount
-    ? `<p class="sub" style="margin-bottom:12px;">${semEsperadoCount} combinação(ões) comprada(s) sem esperado calculável (produto sem entrada na Relação Serviço × Produto ou com dosagem variável) ficaram de fora deste ranking — aparecem na Tabela detalhada com o status "sem esperado calculado".</p>`
+    ? `<p class="sub" style="margin-bottom:12px;">${semEsperadoCount} produto(s) × unidade sem esperado calculável (sem entrada na Relação Serviço × Produto ou sem rendimento estimável) ficaram de fora deste ranking — aparecem na Tabela detalhada com o status "sem esperado calculado".</p>`
     : '';
   const cont = document.getElementById('dc-ranking-lista');
   cont.innerHTML = aviso + (top.length ? top.map(l => {
@@ -3266,10 +3341,10 @@ function renderDcRanking(){
     const isExcesso = l.desvio >= 0;
     return `<div style="margin-bottom:12px;">
       <div class="row" style="justify-content:space-between; font-size:12.5px; margin-bottom:3px;">
-        <span>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras.">estimado</span>' : ''}<span class="sub" style="display:inline;"> — ${escapeHtml(l.unidade)}, ${nomeMesPt(l.mes)} ${l.mes.split('-')[0]}</span></span>
-        <span class="mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio,1)} pacote(s) (${l.desvioPct>=0?'+':''}${fmtNum(l.desvioPct,0)}%)</span>
+        <span>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras.">estimado</span>' : ''}<span class="sub" style="display:inline;"> — ${escapeHtml(l.unidade)}, desde ${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</span></span>
+        <span class="mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio,0)} serviço(s) (${l.desvioPct>=0?'+':''}${fmtNum(l.desvioPct,0)}%)</span>
       </div>
-      <div class="dc-barra-eixo" title="${isExcesso?'Comprado acima do esperado':'Comprado abaixo do esperado'}">
+      <div class="dc-barra-eixo" title="${isExcesso?'Feito acima do esperado pra essa compra':'Feito abaixo do esperado pra essa compra'}">
         <div class="dc-barra-zero"></div>
         <div class="dc-barra-fill ${isExcesso?'excesso':'deficit'}" style="${isExcesso ? 'left:50%;' : 'right:50%;'} width:${larguraPct}%;"></div>
       </div>
@@ -3278,13 +3353,14 @@ function renderDcRanking(){
 }
 
 function renderDcDashboard(){
-  const linhas = dcLinhasFiltradas();
+  const fu = document.getElementById('dc-unidade').value;
+  const { linhas: todasLinhas, servicosSemRsp } = calcularAnaliseConsumo();
+  const linhas = todasLinhas.filter(l => !fu || l.unidade===fu);
   const totalEsperadoRs = linhas.reduce((s,l)=>s+(l.valorEsperadoRs||0),0);
   const totalRealRs = linhas.reduce((s,l)=>s+(l.valorRealRs||0),0);
   const desvioRs = totalRealRs - totalEsperadoRs;
   const desvioPctGeral = totalEsperadoRs > 0.01 ? (desvioRs/totalEsperadoRs)*100 : null;
   const combosAltoDesvio = linhas.filter(l => l.esperado>0.001 && Math.abs(l.desvioPct)>20).length;
-  const { servicosSemRsp } = calcularAnaliseConsumo();
   const atendimentosSemRsp = [...servicosSemRsp.values()].reduce((s,n)=>s+n,0);
 
   document.getElementById('dc-stats').innerHTML = `
@@ -3295,10 +3371,8 @@ function renderDcDashboard(){
     <div class="stat"><span class="n mono">${fmtNum(atendimentosSemRsp,0)}</span><span class="l">Atendimentos sem produto associado (RSP)</span></div>
   `;
 
-  const fu = document.getElementById('dc-unidade').value;
-  const { linhas: todasLinhas } = calcularAnaliseConsumo();
   const porMes = new Map();
-  todasLinhas.filter(l => !fu || l.unidade===fu).forEach(l => {
+  linhas.forEach(l => {
     if (!porMes.has(l.mes)) porMes.set(l.mes, {esperado:0, real:0});
     const m = porMes.get(l.mes);
     m.esperado += l.valorEsperadoRs || 0;
