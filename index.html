@@ -594,7 +594,7 @@
       </div>
     </div>
     <div class="readonly-banner show" style="background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong);">
-      <strong>Primeira versão do relatório comparativo.</strong> O <strong>esperado</strong> é calculado cruzando o histórico de serviços realizados com a Relação Serviço × Produto e a Tabela de Rendimento (quantos atendimentos cada pacote/frasco rende). O <strong>real</strong> é o Histórico de Compras — como não temos um histórico de saída/baixa de estoque, compra é usada como aproximação do consumo (pode haver defasagem por compra em lote/estoque). Pontos em aberto: 3 produtos de dosagem variável (Higiene dos Ouvidos/Olhos, Extra Soft) não entram no cálculo por não terem um rendimento fixo; serviços sem produto associado na relação (tosas, taxas, leva-e-traz etc.) não geram consumo esperado; compras de Enfeites ainda não têm aba própria.
+      <strong>Primeira versão do relatório comparativo.</strong> O <strong>esperado</strong> é calculado cruzando o histórico de serviços realizados com a Relação Serviço × Produto e a Tabela de Rendimento (quantos atendimentos cada pacote/frasco rende). O <strong>real</strong> é o Histórico de Compras — como não temos um histórico de saída/baixa de estoque, compra é usada como aproximação do consumo (pode haver defasagem por compra em lote/estoque). Produtos sem rendimento fixo na planilha original (ex.: Extra Soft) têm o rendimento <strong>estimado automaticamente</strong> a partir do intervalo entre compras de cada unidade (marcados com a etiqueta "estimado"). Pontos em aberto: serviços sem produto associado na relação (tosas, taxas, leva-e-traz etc.) não geram consumo esperado; compras de Enfeites ainda não têm aba própria; Higiene dos Olhos/Ouvidos ainda não têm serviço associado identificado na Relação Serviço × Produto.
     </div>
 
     <div class="card" id="dc-card">
@@ -2905,11 +2905,17 @@ function renderRendTabela(){
     <tr>
       <td>${escapeHtml(item.produtoCatalogo || item.nomeOriginal)}${!item.produtoCatalogo ? ' <span class="chip pendente" style="padding:1px 6px;">sem correspondência</span>' : ''}</td>
       <td>${escapeHtml(item.apresentacao || '-')}</td>
-      <td>${escapeHtml(item.rendimentoTexto || '-')}</td>
+      <td>${escapeHtml(item.rendimentoTexto || '-')}${rendEstimadoHtml(item)}</td>
       <td class="num mono">${item.consumoPorAplicacao != null ? (Math.round(item.consumoPorAplicacao*100)/100) + ' ' + (item.unidadeConsumo||'') : '—'}</td>
       <td class="mono">${escapeHtml(item.diluicao || '-')}</td>
       <td class="sub" style="max-width:200px;">${escapeHtml(item.obsRendimento || '-')}</td>
     </tr>`).join('') : '<tr><td colspan="6"><div class="empty">Nenhuma tabela de rendimento importada ainda.</div></td></tr>';
+}
+function rendEstimadoHtml(item){
+  if (item.rendimentoNumero || !item.produtoCatalogo) return '';
+  const est = estimarRendimentoEmpirico(item.produtoCatalogo);
+  if (!est) return '';
+  return `<br><span class="chip obs" style="padding:1px 8px; margin-top:4px;" title="Estimado a partir de ${est.intervalos} intervalo(s) entre compras, cruzando com atendimentos do(s) serviço(s) associado(s) na Relação Serviço × Produto.">≈ ${fmtNum(est.rendimentoNumero,0)} aplicações/pacote (estimado)</span>`;
 }
 
 function distintosUnidadeHc(itens){
@@ -3074,20 +3080,73 @@ function valorUnitarioMedioPorProduto(){
   acum.forEach((a,k) => { if (a.qtd > 0) m.set(k, a.valor / a.qtd); });
   return m;
 }
+// Pra produtos sem rendimento fixo (dosagem variável, ou sem nenhuma linha na
+// Tabela de Rendimento), estima o rendimento contando quantos atendimentos
+// do(s) serviço(s) que usam esse produto (via Relação Serviço×Produto)
+// aconteceram entre uma compra e a compra seguinte, na mesma unidade —
+// assume que a compra no início do intervalo cobriu o consumo até a próxima
+// compra daquele produto naquela unidade. Só usa intervalos "fechados" (tem
+// uma compra seguinte) — a compra mais recente de cada unidade fica de fora
+// por não ter fim de intervalo conhecido ainda.
+function estimarRendimentoEmpirico(produtoCatalogo){
+  const rspDoProduto = (pedidosState.relacaoServicoProduto||[])
+    .filter(r => r.produtos.some(p => p.produtoCatalogo === produtoCatalogo))
+    .map(r => ({ servicoNorm: normalizarNomeParaMatch(r.servico), peso: r.produtos.find(p => p.produtoCatalogo === produtoCatalogo).peso }));
+  if (!rspDoProduto.length) return null;
+  const pesoPorServicoNorm = new Map(rspDoProduto.map(r => [r.servicoNorm, r.peso]));
+
+  const comprasPorUnidade = new Map();
+  (pedidosState.historicoCompras||[]).forEach(hc => {
+    if (hc.produtoCatalogo !== produtoCatalogo || !hc.unidade || !hc.quantidade) return;
+    if (!comprasPorUnidade.has(hc.unidade)) comprasPorUnidade.set(hc.unidade, new Map());
+    const porMes = comprasPorUnidade.get(hc.unidade);
+    porMes.set(hc.mes, (porMes.get(hc.mes)||0) + hc.quantidade);
+  });
+
+  const atendPorUnidadeMes = new Map();
+  (pedidosState.historicoServicos||[]).forEach(hs => {
+    if (!hs.unidade) return;
+    const peso = pesoPorServicoNorm.get(normalizarNomeParaMatch(hs.servico));
+    if (peso == null) return;
+    if (!atendPorUnidadeMes.has(hs.unidade)) atendPorUnidadeMes.set(hs.unidade, new Map());
+    const porMes = atendPorUnidadeMes.get(hs.unidade);
+    porMes.set(hs.mes, (porMes.get(hs.mes)||0) + hs.atendimentos*(peso/100));
+  });
+
+  let somaAtendimentos = 0, somaPacotes = 0, intervalos = 0;
+  comprasPorUnidade.forEach((porMes, unidade) => {
+    const meses = [...porMes.keys()].sort();
+    const atendPorMes = atendPorUnidadeMes.get(unidade) || new Map();
+    for (let i = 0; i < meses.length - 1; i++){
+      const mesInicio = meses[i], mesFim = meses[i+1];
+      const qtd = porMes.get(mesInicio);
+      if (!qtd) continue;
+      let atend = 0;
+      atendPorMes.forEach((v,m) => { if (m >= mesInicio && m < mesFim) atend += v; });
+      if (atend > 0){ somaAtendimentos += atend; somaPacotes += qtd; intervalos++; }
+    }
+  });
+
+  if (!intervalos || somaPacotes <= 0) return null;
+  return { rendimentoNumero: somaAtendimentos / somaPacotes, intervalos, aplicacoes: somaAtendimentos, pacotes: somaPacotes };
+}
+
 function calcularAnaliseConsumo(){
   const rspPorServicoNorm = new Map();
   (pedidosState.relacaoServicoProduto||[]).forEach(r => rspPorServicoNorm.set(normalizarNomeParaMatch(r.servico), r));
   const rendPorCatalogo = rendimentoPorCatalogoMap();
+  const estimativasCache = new Map();
 
   const linhasMap = new Map();
   function linha(unidade, mes, produto){
     const k = unidade + '\u0001' + mes + '\u0001' + produto;
-    if (!linhasMap.has(k)) linhasMap.set(k, { unidade, mes, produto, esperado: 0, real: 0 });
+    if (!linhasMap.has(k)) linhasMap.set(k, { unidade, mes, produto, esperado: 0, real: 0, estimado: false });
     return linhasMap.get(k);
   }
 
   const servicosSemRsp = new Map();
   const produtosDosagemVariavel = new Set();
+  const produtosComRendimentoEstimado = new Map();
 
   (pedidosState.historicoServicos||[]).forEach(hs => {
     if (!hs.unidade) return;
@@ -3101,9 +3160,18 @@ function calcularAnaliseConsumo(){
     rsp.produtos.forEach(p => {
       if (!p.produtoCatalogo) return;
       const rend = rendPorCatalogo.get(p.produtoCatalogo);
-      if (!rend || !rend.rendimentoNumero){ produtosDosagemVariavel.add(p.produtoCatalogo); return; }
-      const pacotes = hs.atendimentos * (p.peso/100) / rend.rendimentoNumero;
-      linha(hs.unidade, hs.mes, p.produtoCatalogo).esperado += pacotes;
+      let rendimentoNumero = rend && rend.rendimentoNumero;
+      let estimado = false;
+      if (!rendimentoNumero){
+        if (!estimativasCache.has(p.produtoCatalogo)) estimativasCache.set(p.produtoCatalogo, estimarRendimentoEmpirico(p.produtoCatalogo));
+        const est = estimativasCache.get(p.produtoCatalogo);
+        if (est){ rendimentoNumero = est.rendimentoNumero; estimado = true; produtosComRendimentoEstimado.set(p.produtoCatalogo, est); }
+      }
+      if (!rendimentoNumero){ produtosDosagemVariavel.add(p.produtoCatalogo); return; }
+      const pacotes = hs.atendimentos * (p.peso/100) / rendimentoNumero;
+      const l = linha(hs.unidade, hs.mes, p.produtoCatalogo);
+      l.esperado += pacotes;
+      if (estimado) l.estimado = true;
     });
   });
 
@@ -3124,7 +3192,7 @@ function calcularAnaliseConsumo(){
     };
   });
 
-  return { linhas, servicosSemRsp, produtosDosagemVariavel };
+  return { linhas, servicosSemRsp, produtosDosagemVariavel, produtosComRendimentoEstimado };
 }
 
 function dcLinhasFiltradas(){
@@ -3171,7 +3239,7 @@ function renderDcTabela(){
     return `<tr>
       <td>${escapeHtml(l.unidade)}</td>
       <td class="mono">${escapeHtml(l.mes)}</td>
-      <td>${escapeHtml(l.produto)}</td>
+      <td>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras (produto sem rendimento fixo na planilha original).">estimado</span>' : ''}</td>
       <td class="num mono">${fmtNum(l.esperado, 1)}</td>
       <td class="num mono">${fmtNum(l.real, 1)}</td>
       <td class="num mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio, 1)}</td>
@@ -3198,7 +3266,7 @@ function renderDcRanking(){
     const isExcesso = l.desvio >= 0;
     return `<div style="margin-bottom:12px;">
       <div class="row" style="justify-content:space-between; font-size:12.5px; margin-bottom:3px;">
-        <span>${escapeHtml(l.produto)}<span class="sub" style="display:inline;"> — ${escapeHtml(l.unidade)}, ${nomeMesPt(l.mes)} ${l.mes.split('-')[0]}</span></span>
+        <span>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras.">estimado</span>' : ''}<span class="sub" style="display:inline;"> — ${escapeHtml(l.unidade)}, ${nomeMesPt(l.mes)} ${l.mes.split('-')[0]}</span></span>
         <span class="mono">${l.desvio>=0?'+':''}${fmtNum(l.desvio,1)} pacote(s) (${l.desvioPct>=0?'+':''}${fmtNum(l.desvioPct,0)}%)</span>
       </div>
       <div class="dc-barra-eixo" title="${isExcesso?'Comprado acima do esperado':'Comprado abaixo do esperado'}">
