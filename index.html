@@ -570,7 +570,7 @@
       </div>
     </div>
     <div class="readonly-banner show" style="background:var(--accent-soft); border-color:var(--accent); color:var(--accent-strong);">
-      <strong>Em construção por etapas.</strong> O relatório comparativo (esperado × real, por unidade, com desvio e ranking) depende de três bases que ainda não foram importadas: <strong>histórico de compras</strong>, <strong>histórico de saída/venda de produtos</strong> e <strong>histórico de serviços realizados</strong>. Por enquanto esta tela guarda e confere as duas bases de referência — a relação Serviço × Produto e a tabela de rendimento/diluição — que vão alimentar o cálculo do consumo esperado assim que as demais planilhas chegarem. Nenhum número de consumo é calculado ainda.
+      <strong>Em construção por etapas.</strong> O relatório comparativo (esperado × real, por unidade, com desvio e ranking) ainda depende de duas bases que faltam ser importadas: <strong>histórico de saída/venda de produtos</strong> e <strong>histórico de serviços realizados</strong>. O <strong>histórico de compras</strong> já está disponível abaixo. Por enquanto esta tela guarda e confere as bases de referência (Serviço × Produto, rendimento/diluição e compras) que vão alimentar o cálculo do consumo esperado assim que as demais planilhas chegarem. Nenhum número de consumo esperado × real é calculado ainda.
     </div>
 
     <div class="card">
@@ -628,6 +628,47 @@
         <tbody></tbody>
       </table></div>
     </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 style="margin-bottom:2px;">Histórico de compras</h2>
+          <div class="sub" id="hc-status" style="margin-bottom:0;">Nenhum histórico de compras importado ainda.</div>
+        </div>
+        <div class="row" style="align-items:center;">
+          <input type="file" id="hc-arquivo" accept=".xlsx">
+          <button class="btn-primary" id="hc-processar" disabled>Processar arquivo</button>
+        </div>
+      </div>
+      <p class="sub" style="margin-top:8px;">Planilha com uma aba por mês (Produto, Valor Unitário, uma coluna por unidade). Cada mês é tratado como um pedido único, com data no dia 1 daquele mês — a partir de Março.</p>
+      <div id="hc-preview-card" style="display:none; margin-top:16px;">
+        <div class="sub" id="hc-preview-resumo" style="margin-bottom:10px;"></div>
+        <div class="row" style="align-items:flex-start; gap:20px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:280px;">
+            <h2 style="font-size:13px; margin-bottom:6px;">Unidades encontradas no arquivo</h2>
+            <div class="tablewrap"><table id="hc-preview-unidades">
+              <thead><tr><th>Nome no arquivo</th><th>Unidade no painel</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+          <div style="flex:2; min-width:320px;">
+            <h2 style="font-size:13px; margin-bottom:6px;">Produtos encontrados no arquivo</h2>
+            <div class="tablewrap" style="max-height:360px; overflow-y:auto;"><table id="hc-preview-produtos">
+              <thead><tr><th>Nome no arquivo</th><th>Produto no catálogo</th></tr></thead>
+              <tbody></tbody>
+            </table></div>
+          </div>
+        </div>
+        <div class="row" style="margin-top:16px;">
+          <button class="btn-primary" id="hc-confirmar">Salvar histórico de compras</button>
+          <button class="btn-ghost" id="hc-cancelar">Cancelar</button>
+        </div>
+      </div>
+      <div class="tablewrap" style="margin-top:16px;"><table id="hc-tabela">
+        <thead><tr><th>Mês</th><th>Unidade</th><th class="num">Itens</th><th class="num">Total (R$)</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
   </section>
 </div>
 
@@ -647,7 +688,7 @@ const CATALOGO_BANHO = [{"produto": "Algodão Hidrofilo 500G (Banho e tosa)", "e
 
 
 /* =========================== ESTADO =========================== */
-let pedidosState = { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [], relacaoServicoProduto: [], rendimentoProdutos: [] };
+let pedidosState = { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [], relacaoServicoProduto: [], rendimentoProdutos: [], historicoCompras: [] };
 let artifactNs = null;
 let readOnly = false;
 
@@ -665,9 +706,10 @@ function loadState(){
     if (!json.catalogoExtraBanho) json.catalogoExtraBanho = [];
     if (!json.relacaoServicoProduto) json.relacaoServicoProduto = [];
     if (!json.rendimentoProdutos) json.rendimentoProdutos = [];
+    if (!json.historicoCompras) json.historicoCompras = [];
     return json;
   }catch(e){
-    return { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [], relacaoServicoProduto: [], rendimentoProdutos: [] };
+    return { pedidosBanho: [], nextId: 1, catalogoExtraBanho: [], relacaoServicoProduto: [], rendimentoProdutos: [], historicoCompras: [] };
   }
 }
 
@@ -1021,6 +1063,61 @@ async function parseXlsxRawRows(arrayBuffer){
     rows.push(rowArr);
   }
   return rows;
+}
+
+/* Abre um .xlsx e devolve a lista de nomes de abas + uma função pra ler as
+   linhas em bruto de uma aba específica pelo nome (usado pelo histórico de
+   compras, que tem uma aba por mês) — lê xl/workbook.xml e o .rels pra
+   descobrir qual arquivo XML corresponde a cada nome de aba, já que a ordem
+   das abas no arquivo não é garantida bater com a ordem dos sheetN.xml. */
+async function abrirXlsxComAbas(arrayBuffer){
+  const entries = readZipEntries(arrayBuffer);
+  let sharedStrings = [];
+  if (entries['xl/sharedStrings.xml']){
+    const ssData = await readZipEntryData(arrayBuffer, entries['xl/sharedStrings.xml']);
+    const ssXml = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(ssData), 'application/xml');
+    sharedStrings = [...ssXml.querySelectorAll('si')].map(si => [...si.querySelectorAll('t')].map(t=>t.textContent).join(''));
+  }
+  if (!entries['xl/workbook.xml']) throw new Error('Não encontrei xl/workbook.xml nesse arquivo.');
+  const wbXml = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(await readZipEntryData(arrayBuffer, entries['xl/workbook.xml'])), 'application/xml');
+  const relMap = {};
+  if (entries['xl/_rels/workbook.xml.rels']){
+    const relsXml = new DOMParser().parseFromString(new TextDecoder('utf-8').decode(await readZipEntryData(arrayBuffer, entries['xl/_rels/workbook.xml.rels'])), 'application/xml');
+    relsXml.querySelectorAll('Relationship').forEach(r => { relMap[r.getAttribute('Id')] = r.getAttribute('Target'); });
+  }
+  const abas = [];
+  wbXml.querySelectorAll('sheets > sheet, sheets sheet').forEach(s => {
+    const nome = s.getAttribute('name');
+    let rId = s.getAttribute('r:id');
+    if (!rId){ for (const attr of s.attributes){ if (attr.name.endsWith(':id')){ rId = attr.value; break; } } }
+    const target = rId ? relMap[rId] : null;
+    if (!nome || !target) return;
+    const path = 'xl/' + target.replace(/^\.?\//,'');
+    abas.push({ nome, path });
+  });
+
+  async function linhasDaAba(nomeAba){
+    const alvo = abas.find(a => normalizarNomeParaMatch(a.nome) === normalizarNomeParaMatch(nomeAba));
+    if (!alvo || !entries[alvo.path]) return null;
+    const xmlText = new TextDecoder('utf-8').decode(await readZipEntryData(arrayBuffer, entries[alvo.path]));
+    const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
+    if (xml.querySelector('parsererror')) throw new Error('Não consegui ler a aba "' + nomeAba + '".');
+    const rows = [];
+    for (const rowEl of xml.querySelectorAll('row')){
+      const rowArr = [];
+      for (const cEl of rowEl.querySelectorAll('c')){
+        const ref = cEl.getAttribute('r') || '';
+        const m = ref.match(/^([A-Z]+)(\d+)$/);
+        const idx = m ? colLetterToIndex(m[1]) : rowArr.length;
+        rowArr[idx] = cellText(cEl, sharedStrings);
+      }
+      for (let i = 0; i < rowArr.length; i++) if (rowArr[i] === undefined) rowArr[i] = '';
+      rows.push(rowArr);
+    }
+    return rows;
+  }
+
+  return { nomesAbas: abas.map(a => a.nome), linhasDaAba };
 }
 
 async function parseXlsxFirstSheet(arrayBuffer){
@@ -2450,8 +2547,105 @@ function parseRendimentoRows(rows){
   return itens;
 }
 
+/* --- Histórico de compras ---
+   Formato observado: uma aba por mês (Março, Abril, ...), linha 0 =
+   cabeçalho (Produto | Valor Unitário | uma coluna por unidade — mas a
+   ORDEM das unidades muda de mês pra mês, então a coluna é sempre resolvida
+   pelo texto do cabeçalho daquele mês específico, nunca por posição fixa).
+   Cada mês é tratado como um pedido único, com data no dia 1 daquele mês —
+   confirmado com o usuário, que também pediu pra considerar só a partir de
+   março (os meses de referência ficam configuráveis em MESES_HISTORICO_COMPRAS). */
+const MESES_HISTORICO_COMPRAS = ['Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+// Nomes de unidade como aparecem nas planilhas de compra (abreviados, com
+// typos ou split diferente por mês) -> nome oficial em UNIDADES. "Jacarei"
+// sozinho (sem 1/2) é ambíguo — ocorre nos meses anteriores ao split em
+// "Jacarei 1"/"Jacarei 2" — assumimos Nave Jacareí por padrão, mas fica
+// visível e editável na conferência antes de salvar.
+const ALIASES_UNIDADE_HISTORICO = {
+  'TATUAPE': 'Nave Tatuapé',
+  'VILA MATIDE': 'Nave Vila Matilde',
+  'VILA MATILDE': 'Nave Vila Matilde',
+  'LAPA': 'Nave Lapa',
+  'VILA PRUDENTE': 'Nave Vila Prudente',
+  'PLANALTO': 'Nave Planalto Paulista',
+  'PLANALTO PAULISTA': 'Nave Planalto Paulista',
+  'CASA VERDE': 'Nave Casa Verde',
+  'TUCURUVI': 'Nave Tucuruvi',
+  'SJC01': 'Nave São José dos Campos I',
+  'SJC 01': 'Nave São José dos Campos I',
+  'SAO JOSE 1': 'Nave São José dos Campos I',
+  'SJC02': 'Nave São José dos Campos II',
+  'SJC 02': 'Nave São José dos Campos II',
+  'SAO JOSE 2': 'Nave São José dos Campos II',
+  'JACAREI': 'Nave Jacareí',
+  'JACAREI 1': 'Nave Jacareí',
+  'JACAREI I': 'Nave Jacareí',
+  'JACAREI 2': 'Nave Jacareí II',
+  'JACAREI II': 'Nave Jacareí II',
+  'SAO VICENTE': 'Nave São Vicente',
+};
+function sugerirUnidadeHistorico(nomeOriginal){
+  const alvo = normalizarNomeParaMatch(nomeOriginal);
+  if (ALIASES_UNIDADE_HISTORICO[alvo]) return ALIASES_UNIDADE_HISTORICO[alvo];
+  const achou = UNIDADES.find(u => normalizarNomeParaMatch(u.nome.replace(/^Nave\s+/, '')) === alvo);
+  return achou ? achou.nome : null;
+}
+function optionsUnidade(selecionado){
+  const opts = ['<option value="">— não corresponde a nenhuma unidade —</option>']
+    .concat(UNIDADES.map(u => `<option value="${escapeHtml(u.nome)}"${u.nome===selecionado?' selected':''}>${escapeHtml(u.nome)}</option>`));
+  return opts.join('');
+}
+
+// Lê uma aba (linhas em bruto) de um mês do histórico de compras e devolve
+// os itens comprados (uma linha por unidade+produto com quantidade > 0).
+function parseHistoricoComprasMes(rows, nomeMes, ano){
+  if (!rows || !rows.length) return [];
+  const header = rows[0];
+  const colUnidades = [];
+  for (let c = 2; c < header.length; c++){
+    const nomeCol = (header[c]||'').toString().trim();
+    if (!nomeCol || normalizarNomeParaMatch(nomeCol) === 'TOTAL') continue;
+    colUnidades.push({ col: c, nomeOriginal: nomeCol, unidade: sugerirUnidadeHistorico(nomeCol) });
+  }
+  const mesNum = MESES_PT_ARR.findIndex(m => normalizarNomeParaMatch(m) === normalizarNomeParaMatch(nomeMes)) + 1;
+  if (!mesNum) return [];
+  const mes = String(ano) + '-' + String(mesNum).padStart(2,'0');
+  const data = mes + '-01';
+  const itens = [];
+  for (let r = 1; r < rows.length; r++){
+    const row = rows[r];
+    const produtoOriginal = (row[0]||'').toString().trim();
+    if (!produtoOriginal) continue;
+    const valorUnitarioTxt = (row[1]||'').toString().trim();
+    const valorUnitario = valorUnitarioTxt ? Number(valorUnitarioTxt.replace(',','.')) : null;
+    const produtoCatalogo = sugerirProdutoCatalogo(produtoOriginal);
+    colUnidades.forEach(cu => {
+      const qtdTxt = (row[cu.col]||'').toString().trim();
+      const qtd = Number(qtdTxt.replace(',','.'));
+      if (!qtdTxt || !Number.isFinite(qtd) || qtd <= 0) return;
+      itens.push({
+        unidade: cu.unidade, unidadeOriginal: cu.nomeOriginal,
+        mes, data,
+        produtoOriginal, produtoCatalogo,
+        quantidade: qtd,
+        valorUnitario: Number.isFinite(valorUnitario) ? valorUnitario : null,
+        valorTotal: Number.isFinite(valorUnitario) ? Math.round(valorUnitario*qtd*100)/100 : null,
+      });
+    });
+  }
+  return itens;
+}
+// Chave usada pra não duplicar o mesmo lançamento se o mesmo arquivo for
+// importado de novo (histórico é cumulativo — cada import soma aos meses já
+// salvos, não substitui, pra dar pra ir importando mês a mês sem perder o
+// que já foi confirmado).
+function chaveHistoricoCompra(item){
+  return [item.mes, item.unidadeOriginal, item.produtoOriginal].join('|').toUpperCase();
+}
+
 let rspPreview = null; // itens lidos do arquivo, antes de confirmar
 let rendPreview = null;
+let hcPreview = null; // { itens, meses: [{nome, encontrada}] }
 
 function linhasProdutosRspHtml(produtos, idxServico){
   if (!produtos.length) return '<span class="sub" style="margin:0;">Sem produto associado</span>';
@@ -2555,6 +2749,82 @@ function renderRendTabela(){
     </tr>`).join('') : '<tr><td colspan="6"><div class="empty">Nenhuma tabela de rendimento importada ainda.</div></td></tr>';
 }
 
+function distintosUnidadeHc(itens){
+  const vistos = new Map();
+  itens.forEach(i => { if (!vistos.has(i.unidadeOriginal)) vistos.set(i.unidadeOriginal, i.unidade); });
+  return [...vistos.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+}
+function distintosProdutoHc(itens){
+  const vistos = new Map();
+  itens.forEach(i => { if (!vistos.has(i.produtoOriginal)) vistos.set(i.produtoOriginal, i.produtoCatalogo); });
+  return [...vistos.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+}
+
+function renderHcPreview(){
+  const card = document.getElementById('hc-preview-card');
+  if (!hcPreview){ card.style.display = 'none'; return; }
+  card.style.display = '';
+  const { itens, mesesEncontrados, mesesNaoEncontrados, ano } = hcPreview;
+  const unidadesDist = distintosUnidadeHc(itens);
+  const produtosDist = distintosProdutoHc(itens);
+  const unidadesPendentes = unidadesDist.filter(([,v]) => !v).length;
+  const produtosPendentes = produtosDist.filter(([,v]) => !v).length;
+  const totalRs = itens.reduce((s,i) => s + (i.valorTotal||0), 0);
+
+  document.getElementById('hc-preview-resumo').innerHTML =
+    `${itens.length} lançamento(s) lido(s) em ${mesesEncontrados.length} mês(es) (${escapeHtml(mesesEncontrados.join(', ') || '-')}), ano assumido <strong>${ano}</strong> (o arquivo não informa o ano) — total ${fmtBRL(totalRs)}.<br>`
+    + `${unidadesPendentes} unidade(s) e ${produtosPendentes} produto(s) ainda sem correspondência confirmada.`
+    + (mesesNaoEncontrados.length ? `<br>Ainda sem aba no arquivo: ${escapeHtml(mesesNaoEncontrados.join(', '))} (normal se esses meses ainda não aconteceram).` : '');
+
+  const tbodyUn = document.querySelector('#hc-preview-unidades tbody');
+  tbodyUn.innerHTML = unidadesDist.map(([orig, atual]) => `
+    <tr><td class="mono">${escapeHtml(orig)}</td><td><select class="hc-unidade-select" data-orig="${escapeHtml(orig)}">${optionsUnidade(atual)}</select></td></tr>
+  `).join('');
+  tbodyUn.querySelectorAll('.hc-unidade-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const orig = sel.dataset.orig;
+      hcPreview.itens.forEach(i => { if (i.unidadeOriginal === orig) i.unidade = sel.value || null; });
+      renderHcPreview();
+    });
+  });
+
+  const tbodyProd = document.querySelector('#hc-preview-produtos tbody');
+  tbodyProd.innerHTML = produtosDist.map(([orig, atual]) => `
+    <tr><td class="mono" style="font-size:11.5px;">${escapeHtml(orig)}</td><td><select class="hc-produto-select" data-orig="${escapeHtml(orig)}">${optionsProdutoCatalogo(atual)}</select></td></tr>
+  `).join('');
+  tbodyProd.querySelectorAll('.hc-produto-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const orig = sel.dataset.orig;
+      hcPreview.itens.forEach(i => { if (i.produtoOriginal === orig) i.produtoCatalogo = sel.value || null; });
+      renderHcPreview();
+    });
+  });
+}
+
+function renderHcTabela(){
+  const tbody = document.querySelector('#hc-tabela tbody');
+  const dados = pedidosState.historicoCompras || [];
+  const totalRs = dados.reduce((s,i)=>s+(i.valorTotal||0),0);
+  document.getElementById('hc-status').textContent = dados.length
+    ? `${dados.length} lançamento(s) no histórico de compras salvo — total ${fmtBRL(totalRs)}.`
+    : 'Nenhum histórico de compras importado ainda.';
+  const porMesUnidade = {};
+  dados.forEach(i => {
+    const chave = i.mes + '|' + (i.unidade || i.unidadeOriginal);
+    if (!porMesUnidade[chave]) porMesUnidade[chave] = { mes: i.mes, unidade: i.unidade, unidadeOriginal: i.unidadeOriginal, itens: 0, total: 0 };
+    porMesUnidade[chave].itens++;
+    porMesUnidade[chave].total += (i.valorTotal||0);
+  });
+  const linhas = Object.values(porMesUnidade).sort((a,b) => a.mes===b.mes ? (a.unidade||a.unidadeOriginal).localeCompare(b.unidade||b.unidadeOriginal) : (a.mes<b.mes?-1:1));
+  tbody.innerHTML = linhas.length ? linhas.map(l => `
+    <tr>
+      <td class="mono">${escapeHtml(l.mes)}</td>
+      <td>${escapeHtml(l.unidade || l.unidadeOriginal)}${!l.unidade ? ' <span class="chip pendente" style="padding:1px 6px;">sem correspondência</span>' : ''}</td>
+      <td class="num mono">${l.itens}</td>
+      <td class="num mono">${fmtBRL(l.total)}</td>
+    </tr>`).join('') : '<tr><td colspan="4"><div class="empty">Nenhum histórico de compras importado ainda.</div></td></tr>';
+}
+
 function setupConsumo(){
   const rspArquivo = document.getElementById('rsp-arquivo');
   const rspBtn = document.getElementById('rsp-processar');
@@ -2609,11 +2879,56 @@ function setupConsumo(){
       `Tabela de rendimento salva (${dados.length} produto(s)).`);
     if (ok){ rendPreview = null; renderRendPreview(); rendArquivo.value = ''; rendBtn.disabled = true; }
   });
+
+  const hcArquivo = document.getElementById('hc-arquivo');
+  const hcBtn = document.getElementById('hc-processar');
+  hcArquivo.addEventListener('change', () => { hcBtn.disabled = !hcArquivo.files.length; });
+  hcBtn.addEventListener('click', async () => {
+    const file = hcArquivo.files[0];
+    if (!file) return;
+    try{
+      const { nomesAbas, linhasDaAba } = await abrirXlsxComAbas(await file.arrayBuffer());
+      const ano = new Date().getFullYear();
+      const mesesEncontrados = [], mesesNaoEncontrados = [];
+      let itens = [];
+      for (const nomeMes of MESES_HISTORICO_COMPRAS){
+        const existe = nomesAbas.some(n => normalizarNomeParaMatch(n) === normalizarNomeParaMatch(nomeMes));
+        if (!existe){ mesesNaoEncontrados.push(nomeMes); continue; }
+        const rows = await linhasDaAba(nomeMes);
+        const itensDoMes = parseHistoricoComprasMes(rows, nomeMes, ano);
+        if (itensDoMes.length){ mesesEncontrados.push(nomeMes); itens = itens.concat(itensDoMes); }
+      }
+      if (!itens.length){ toast('Não encontrei nenhum lançamento nas abas de mês (a partir de Março) desse arquivo.', 'error'); return; }
+      hcPreview = { itens, mesesEncontrados, mesesNaoEncontrados, ano };
+      renderHcPreview();
+    }catch(err){
+      toast('Não consegui ler esse arquivo: ' + err.message, 'error');
+    }
+  });
+  document.getElementById('hc-cancelar').addEventListener('click', () => {
+    hcPreview = null; renderHcPreview();
+    hcArquivo.value = ''; hcBtn.disabled = true;
+  });
+  document.getElementById('hc-confirmar').addEventListener('click', async () => {
+    if (!hcPreview) return;
+    const novosItens = hcPreview.itens;
+    const chavesExistentes = new Set((pedidosState.historicoCompras||[]).map(chaveHistoricoCompra));
+    const adicionados = novosItens.filter(i => !chavesExistentes.has(chaveHistoricoCompra(i))).length;
+    const ok = await commit(state => {
+      const existentes = state.historicoCompras || [];
+      const chavesJa = new Set(existentes.map(chaveHistoricoCompra));
+      const novos = novosItens.filter(i => !chavesJa.has(chaveHistoricoCompra(i)));
+      state.historicoCompras = existentes.concat(novos);
+      return state;
+    }, `Histórico de compras atualizado: ${adicionados} lançamento(s) novo(s)${novosItens.length - adicionados ? ` (${novosItens.length - adicionados} já existiam)` : ''}.`);
+    if (ok){ hcPreview = null; renderHcPreview(); hcArquivo.value = ''; hcBtn.disabled = true; }
+  });
 }
 
 function renderConsumo(){
   renderRspTabela();
   renderRendTabela();
+  renderHcTabela();
 }
 
 /* =========================== RENDER GERAL =========================== */
@@ -2655,6 +2970,7 @@ function setupZerar(){
       catalogoExtraBanho: state.catalogoExtraBanho || [],
       relacaoServicoProduto: state.relacaoServicoProduto || [],
       rendimentoProdutos: state.rendimentoProdutos || [],
+      historicoCompras: state.historicoCompras || [],
     }), 'Painel zerado — todos os pedidos foram apagados.');
   });
 }
