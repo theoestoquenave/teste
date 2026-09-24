@@ -3113,6 +3113,16 @@ const GALOES_5L_1_10 = new Set([
   'PRO PELOS CLAROS 5L 1:10',
   'PRO BRILHO E DESEMBARAÇO 5L 1:10',
 ]);
+const APRESENTACAO_ML_GALOES_5L = 5000;
+// ml realmente necessários pro grupo de atendimentos (10ml pequeno/micro,
+// 15ml médio, 20ml grande/gigante) — usado pra calcular quantos banhos um
+// galão de 5L rende de verdade, dado o mix de porte observado.
+function mlConsumidoGrupo(hs){
+  const grande = hs.atendimentosGrande || 0;
+  const medio = hs.atendimentosMedio || 0;
+  const pequenoMicro = hs.atendimentos - grande - medio;
+  return pequenoMicro*10 + medio*15 + grande*20;
+}
 // Nota do usuário (24/09/2026): tirar esses produtos do relatório
 // comparativo — itens genéricos (algodão, luvas, touca, pó hemostático)
 // sem preço/fornecedor definido e sem uso ligado a um serviço específico,
@@ -3357,6 +3367,11 @@ function calcularComparativoUltimaCompra(){
     });
   });
   const atendPorProdutoUnidadeMes = new Map();
+  // Só pros galões de 5L: guarda separadamente a contagem real de banhos
+  // (sem multiplicar por porte) e o ml realmente necessário (com porte) —
+  // permite calcular quantos banhos o galão RENDE de verdade dado o mix de
+  // porte observado, em vez de inflar a contagem de banhos feitos.
+  const galoesPorProdutoUnidadeMes = new Map();
   (pedidosState.historicoServicos||[]).forEach(hs => {
     if (!hs.unidade) return;
     const norm = normalizarNomeParaMatch(hs.servico);
@@ -3369,6 +3384,17 @@ function calcularComparativoUltimaCompra(){
       if (!porUnidade.has(hs.unidade)) porUnidade.set(hs.unidade, new Map());
       const porMes = porUnidade.get(hs.unidade);
       porMes.set(hs.mes, (porMes.get(hs.mes)||0) + atendimentoEfetivo(produto, hs)*(peso/100));
+
+      if (GALOES_5L_1_10.has(produto)){
+        if (!galoesPorProdutoUnidadeMes.has(produto)) galoesPorProdutoUnidadeMes.set(produto, new Map());
+        const gPorUnidade = galoesPorProdutoUnidadeMes.get(produto);
+        if (!gPorUnidade.has(hs.unidade)) gPorUnidade.set(hs.unidade, new Map());
+        const gPorMes = gPorUnidade.get(hs.unidade);
+        if (!gPorMes.has(hs.mes)) gPorMes.set(hs.mes, { atendimentos: 0, ml: 0 });
+        const acc = gPorMes.get(hs.mes);
+        acc.atendimentos += hs.atendimentos * (peso/100);
+        acc.ml += mlConsumidoGrupo(hs) * (peso/100);
+      }
     });
   });
 
@@ -3379,26 +3405,45 @@ function calcularComparativoUltimaCompra(){
     // associado na Relação Serviço×Produto — sem isso "serviços feitos"
     // nunca sai de zero e o desvio vira sempre -100%, o que não é real.
     const temServicoAssociado = pesosPorProduto.has(produto);
-    const rendInfo = temServicoAssociado ? rendimentoDoProduto(produto) : null;
-    const porUnidade = atendPorProdutoUnidadeMes.get(produto);
-    const porMes = porUnidade ? porUnidade.get(unidade) : null;
+
     let servicosFeitos = 0;
-    if (porMes) porMes.forEach((v,m) => { if (m >= info.mes) servicosFeitos += v; });
+    let servicosEsperados = null;
+    let estimado = false;
 
-    const recorrenciaMensal = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto];
-    const quantidadeEfetiva = recorrenciaMensal != null && ultimoMesDados
-      ? recorrenciaMensal * mesesEntre(info.mes, ultimoMesDados)
-      : info.quantidade;
+    if (GALOES_5L_1_10.has(produto)){
+      // esperado = quantos banhos o galão RENDE de verdade, dado o mix de
+      // porte observado (cai conforme mais banhos usam 15/20ml em vez dos
+      // 10ml-base) — feito = contagem real de banhos, sem multiplicar por porte.
+      const gPorUnidade = galoesPorProdutoUnidadeMes.get(produto);
+      const gPorMes = gPorUnidade ? gPorUnidade.get(unidade) : null;
+      let atendReal = 0, mlReal = 0;
+      if (gPorMes) gPorMes.forEach((acc,m) => { if (m >= info.mes){ atendReal += acc.atendimentos; mlReal += acc.ml; } });
+      servicosFeitos = atendReal;
+      servicosEsperados = mlReal > 0.001 ? (info.quantidade * APRESENTACAO_ML_GALOES_5L * atendReal / mlReal) : null;
+    } else {
+      const rendInfo = temServicoAssociado ? rendimentoDoProduto(produto) : null;
+      const porUnidade = atendPorProdutoUnidadeMes.get(produto);
+      const porMes = porUnidade ? porUnidade.get(unidade) : null;
+      if (porMes) porMes.forEach((v,m) => { if (m >= info.mes) servicosFeitos += v; });
 
-    const servicosEsperados = rendInfo ? quantidadeEfetiva * rendInfo.valor : null;
+      const recorrenciaMensal = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto];
+      const quantidadeEfetiva = recorrenciaMensal != null && ultimoMesDados
+        ? recorrenciaMensal * mesesEntre(info.mes, ultimoMesDados)
+        : info.quantidade;
+
+      servicosEsperados = rendInfo ? quantidadeEfetiva * rendInfo.valor : null;
+      estimado = rendInfo ? rendInfo.estimado : false;
+    }
+
+    const recorrenciaMensalFlag = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto] != null;
     const desvio = servicosEsperados != null ? servicosFeitos - servicosEsperados : null;
     const desvioPct = servicosEsperados > 0.001 ? (desvio/servicosEsperados)*100 : null;
 
     linhas.push({
       unidade, produto, mesUltimaCompra: info.mes, quantidadeUltimaCompra: info.quantidade,
       servicosEsperados, servicosFeitos, desvio, desvioPct,
-      estimado: rendInfo ? rendInfo.estimado : false,
-      recorrencia: recorrenciaMensal != null,
+      estimado,
+      recorrencia: recorrenciaMensalFlag,
     });
   });
 
