@@ -3098,30 +3098,35 @@ const ALIASES_SERVICO_RSP = {
   // Erro de digitação no export do sistema de agendamento (1 atendimento).
   'HIDRATACAO WILLIAN GALHARDE (RPOMOCIONAL)': 'HIDRATACAO WILLIAN GALHARDE (PROMOCIONAL)',
 };
-// Produtos cuja quantidade por atendimento não é sempre "1x" — hoje só a
-// toalha descartável: 1 por banho, 2 quando o porte do pet é Grande/Gigante
-// (atendimentosGrande, contado a partir da coluna PORTE do histórico de
-// serviços). Os demais produtos usam hs.atendimentos normalmente.
-// Nota do usuário (24/09/2026): pros galões de 5L 1:10 (Neutralizador,
-// Neutro, Pelos Claros, Brilho e Desembaraço) renderem os 500 banhos
-// esperados (5000ml / 10ml), o consumo por banho varia por porte: 10ml
-// porte pequeno/micro, 15ml médio, 20ml grande/gigante — 1x/1,5x/2x do
-// consumo-base de 10ml usado no rendimento (ver GALOES_5L_1_10 abaixo).
-const GALOES_5L_1_10 = new Set([
-  'PRO NEUTRALIZADOR DE ODORES 5L 1:10',
-  'PRO NEUTRO 5L 1:10',
-  'PRO PELOS CLAROS 5L 1:10',
-  'PRO BRILHO E DESEMBARAÇO 5L 1:10',
+// Produtos cujo "esperado" (nº de banhos que o pacote/galão RENDE) varia
+// com o mix de porte dos atendimentos, em vez de ficar fixo — porte maior
+// consome mais por banho, então o mesmo pacote rende menos banhos. Cada
+// entrada dá o tamanho da apresentação (em ml ou unidades) e uma função
+// que calcula quanto foi consumido num grupo de atendimentos.
+// Nota do usuário (24/09/2026): galões de 5L 1:10 (Neutralizador, Neutro,
+// Pelos Claros, Brilho e Desembaraço) — 10ml pequeno/micro, 15ml médio,
+// 20ml grande/gigante (base: 5000ml / 10ml = 500 banhos).
+// Nota do usuário (24/09/2026): toalha descartável — 1 toalha pequeno/
+// médio, 2 toalhas grande/gigante (base: 100 unidades/pacote).
+const PRODUTOS_ESPERADO_DINAMICO_PORTE = new Map([
+  ['PRO NEUTRALIZADOR DE ODORES 5L 1:10', { apresentacao: 5000, consumoGrupo: hs => {
+    const grande = hs.atendimentosGrande || 0, medio = hs.atendimentosMedio || 0;
+    return (hs.atendimentos - grande - medio)*10 + medio*15 + grande*20;
+  } }],
+  ['PRO NEUTRO 5L 1:10', null],
+  ['PRO PELOS CLAROS 5L 1:10', null],
+  ['PRO BRILHO E DESEMBARAÇO 5L 1:10', null],
+  ['Rolo de toalha descartável (100UNIDADES)', { apresentacao: 100, consumoGrupo: hs => {
+    const grande = hs.atendimentosGrande || 0;
+    return (hs.atendimentos - grande)*1 + grande*2;
+  } }],
 ]);
-const APRESENTACAO_ML_GALOES_5L = 5000;
-// ml realmente necessários pro grupo de atendimentos (10ml pequeno/micro,
-// 15ml médio, 20ml grande/gigante) — usado pra calcular quantos banhos um
-// galão de 5L rende de verdade, dado o mix de porte observado.
-function mlConsumidoGrupo(hs){
-  const grande = hs.atendimentosGrande || 0;
-  const medio = hs.atendimentosMedio || 0;
-  const pequenoMicro = hs.atendimentos - grande - medio;
-  return pequenoMicro*10 + medio*15 + grande*20;
+// os 3 primeiros galões compartilham a mesma função dos NEUTRALIZADOR — preenche por referência
+{
+  const cfgGaloes = PRODUTOS_ESPERADO_DINAMICO_PORTE.get('PRO NEUTRALIZADOR DE ODORES 5L 1:10');
+  ['PRO NEUTRO 5L 1:10', 'PRO PELOS CLAROS 5L 1:10', 'PRO BRILHO E DESEMBARAÇO 5L 1:10'].forEach(p => {
+    PRODUTOS_ESPERADO_DINAMICO_PORTE.set(p, cfgGaloes);
+  });
 }
 // Nota do usuário (24/09/2026): tirar esses produtos do relatório
 // comparativo — itens genéricos (algodão, luvas, touca, pó hemostático)
@@ -3135,15 +3140,6 @@ const PRODUTOS_EXCLUIDOS_COMPARATIVO = new Set([
   'Pacote de touca (100 unidades)',
   'PÓ HEMOSTATICO',
 ]);
-function atendimentoEfetivo(produtoCatalogo, hs){
-  if (produtoCatalogo === 'Rolo de toalha descartável (100UNIDADES)'){
-    return hs.atendimentos + (hs.atendimentosGrande || 0);
-  }
-  if (GALOES_5L_1_10.has(produtoCatalogo)){
-    return hs.atendimentos + (hs.atendimentosMedio || 0)*0.5 + (hs.atendimentosGrande || 0)*1;
-  }
-  return hs.atendimentos;
-}
 // Casos em que a última compra registrada claramente não reflete o ritmo
 // real de reposição (só uma compra isolada há vários meses, com uso muito
 // acima do que ela cobriria) — o usuário informa uma quantidade mensal
@@ -3246,7 +3242,7 @@ function estimarRendimentoEmpirico(produtoCatalogo){
     if (peso == null) return;
     if (!atendPorUnidadeMes.has(hs.unidade)) atendPorUnidadeMes.set(hs.unidade, new Map());
     const porMes = atendPorUnidadeMes.get(hs.unidade);
-    porMes.set(hs.mes, (porMes.get(hs.mes)||0) + atendimentoEfetivo(produtoCatalogo, hs)*(peso/100));
+    porMes.set(hs.mes, (porMes.get(hs.mes)||0) + hs.atendimentos*(peso/100));
   });
 
   let somaAtendimentos = 0, somaPacotes = 0, intervalos = 0;
@@ -3367,11 +3363,12 @@ function calcularComparativoUltimaCompra(){
     });
   });
   const atendPorProdutoUnidadeMes = new Map();
-  // Só pros galões de 5L: guarda separadamente a contagem real de banhos
-  // (sem multiplicar por porte) e o ml realmente necessário (com porte) —
-  // permite calcular quantos banhos o galão RENDE de verdade dado o mix de
-  // porte observado, em vez de inflar a contagem de banhos feitos.
-  const galoesPorProdutoUnidadeMes = new Map();
+  // Pros produtos em PRODUTOS_ESPERADO_DINAMICO_PORTE: guarda separadamente
+  // a contagem real de banhos (sem multiplicar por porte) e a quantidade
+  // realmente consumida (ml ou unidades, com porte) — permite calcular
+  // quantos banhos o pacote/galão RENDE de verdade dado o mix de porte
+  // observado, em vez de inflar a contagem de banhos feitos.
+  const dinamicoPorProdutoUnidadeMes = new Map();
   (pedidosState.historicoServicos||[]).forEach(hs => {
     if (!hs.unidade) return;
     const norm = normalizarNomeParaMatch(hs.servico);
@@ -3379,22 +3376,23 @@ function calcularComparativoUltimaCompra(){
     pesosPorProduto.forEach((pesoPorServico, produto) => {
       const peso = pesoPorServico.get(chaveNorm);
       if (peso == null) return;
+      const cfgDinamico = PRODUTOS_ESPERADO_DINAMICO_PORTE.get(produto);
+      if (cfgDinamico){
+        if (!dinamicoPorProdutoUnidadeMes.has(produto)) dinamicoPorProdutoUnidadeMes.set(produto, new Map());
+        const dPorUnidade = dinamicoPorProdutoUnidadeMes.get(produto);
+        if (!dPorUnidade.has(hs.unidade)) dPorUnidade.set(hs.unidade, new Map());
+        const dPorMes = dPorUnidade.get(hs.unidade);
+        if (!dPorMes.has(hs.mes)) dPorMes.set(hs.mes, { atendimentos: 0, consumido: 0 });
+        const acc = dPorMes.get(hs.mes);
+        acc.atendimentos += hs.atendimentos * (peso/100);
+        acc.consumido += cfgDinamico.consumoGrupo(hs) * (peso/100);
+        return;
+      }
       if (!atendPorProdutoUnidadeMes.has(produto)) atendPorProdutoUnidadeMes.set(produto, new Map());
       const porUnidade = atendPorProdutoUnidadeMes.get(produto);
       if (!porUnidade.has(hs.unidade)) porUnidade.set(hs.unidade, new Map());
       const porMes = porUnidade.get(hs.unidade);
-      porMes.set(hs.mes, (porMes.get(hs.mes)||0) + atendimentoEfetivo(produto, hs)*(peso/100));
-
-      if (GALOES_5L_1_10.has(produto)){
-        if (!galoesPorProdutoUnidadeMes.has(produto)) galoesPorProdutoUnidadeMes.set(produto, new Map());
-        const gPorUnidade = galoesPorProdutoUnidadeMes.get(produto);
-        if (!gPorUnidade.has(hs.unidade)) gPorUnidade.set(hs.unidade, new Map());
-        const gPorMes = gPorUnidade.get(hs.unidade);
-        if (!gPorMes.has(hs.mes)) gPorMes.set(hs.mes, { atendimentos: 0, ml: 0 });
-        const acc = gPorMes.get(hs.mes);
-        acc.atendimentos += hs.atendimentos * (peso/100);
-        acc.ml += mlConsumidoGrupo(hs) * (peso/100);
-      }
+      porMes.set(hs.mes, (porMes.get(hs.mes)||0) + hs.atendimentos*(peso/100));
     });
   });
 
@@ -3410,16 +3408,17 @@ function calcularComparativoUltimaCompra(){
     let servicosEsperados = null;
     let estimado = false;
 
-    if (GALOES_5L_1_10.has(produto)){
-      // esperado = quantos banhos o galão RENDE de verdade, dado o mix de
-      // porte observado (cai conforme mais banhos usam 15/20ml em vez dos
-      // 10ml-base) — feito = contagem real de banhos, sem multiplicar por porte.
-      const gPorUnidade = galoesPorProdutoUnidadeMes.get(produto);
-      const gPorMes = gPorUnidade ? gPorUnidade.get(unidade) : null;
-      let atendReal = 0, mlReal = 0;
-      if (gPorMes) gPorMes.forEach((acc,m) => { if (m >= info.mes){ atendReal += acc.atendimentos; mlReal += acc.ml; } });
+    const cfgDinamico = PRODUTOS_ESPERADO_DINAMICO_PORTE.get(produto);
+    if (cfgDinamico){
+      // esperado = quantos banhos o pacote/galão RENDE de verdade, dado o
+      // mix de porte observado (cai conforme mais banhos usam porte maior)
+      // — feito = contagem real de banhos, sem multiplicar por porte.
+      const dPorUnidade = dinamicoPorProdutoUnidadeMes.get(produto);
+      const dPorMes = dPorUnidade ? dPorUnidade.get(unidade) : null;
+      let atendReal = 0, consumidoReal = 0;
+      if (dPorMes) dPorMes.forEach((acc,m) => { if (m >= info.mes){ atendReal += acc.atendimentos; consumidoReal += acc.consumido; } });
       servicosFeitos = atendReal;
-      servicosEsperados = mlReal > 0.001 ? (info.quantidade * APRESENTACAO_ML_GALOES_5L * atendReal / mlReal) : null;
+      servicosEsperados = consumidoReal > 0.001 ? (info.quantidade * cfgDinamico.apresentacao * atendReal / consumidoReal) : null;
     } else {
       const rendInfo = temServicoAssociado ? rendimentoDoProduto(produto) : null;
       const porUnidade = atendPorProdutoUnidadeMes.get(produto);
