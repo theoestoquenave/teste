@@ -3113,6 +3113,18 @@ const GALOES_5L_1_10 = new Set([
   'PRO PELOS CLAROS 5L 1:10',
   'PRO BRILHO E DESEMBARAÇO 5L 1:10',
 ]);
+// Nota do usuário (24/09/2026): tirar esses produtos do relatório
+// comparativo — itens genéricos (algodão, luvas, touca, pó hemostático)
+// sem preço/fornecedor definido e sem uso ligado a um serviço específico,
+// que só apareciam como "sem esperado calculado".
+const PRODUTOS_EXCLUIDOS_COMPARATIVO = new Set([
+  'Algodão Hidrofilo 500G (Banho e tosa)',
+  'Algodão hidrofóbico 1Kg',
+  'Caixa de luva P (100 unidades)',
+  'Caixa de luva P sem pó (100 unidades)',
+  'Pacote de touca (100 unidades)',
+  'PÓ HEMOSTATICO',
+]);
 function atendimentoEfetivo(produtoCatalogo, hs){
   if (produtoCatalogo === 'Rolo de toalha descartável (100UNIDADES)'){
     return hs.atendimentos + (hs.atendimentosGrande || 0);
@@ -3329,6 +3341,7 @@ function calcularComparativoUltimaCompra(){
   const ultimaCompraPorUnidadeProduto = new Map();
   comprasReaisMescladas().forEach(hc => {
     if (!hc.unidade || !hc.produtoCatalogo || !hc.quantidade) return;
+    if (PRODUTOS_EXCLUIDOS_COMPARATIVO.has(hc.produtoCatalogo)) return;
     const k = hc.unidade + '\u0001' + hc.produtoCatalogo;
     const atual = ultimaCompraPorUnidadeProduto.get(k);
     if (!atual || hc.mes > atual.mes) ultimaCompraPorUnidadeProduto.set(k, { mes: hc.mes, quantidade: hc.quantidade });
