@@ -3,14 +3,22 @@
 // (coordenadora). Roda 100% local (Playwright + servidor estático embutido),
 // não depende de rede além do Chromium já instalado no ambiente.
 //
+// Rodar todo dia 1 do mês: o usuário sobe os pedidos do mês seguinte no
+// último dia do mês anterior (ex.: pedidos de outubro, aprovados em 30/09,
+// contam como compra de outubro — ver mesSeguinte() no index.html). No dia
+// 1, essas compras já estão refletidas nos dados, e o relatório mostra só
+// os produtos com compra registrada NESSE mês — quem não foi repedido
+// segue em uso (ainda pode render mais) e fica de fora, pedido explícito
+// do usuário (25/09/2026).
+//
 // Uso: node gerar_relatorio_mensal.mjs [--out DIR] [--mes YYYY-MM]
 //   --out  diretório de saída (default: ./saida, relativo a este arquivo)
-//   --mes  mês de fechamento a rotular nas imagens, formato YYYY-MM
-//          (default: mês atual)
+//   --mes  mês de referência dos pedidos a considerar/rotular, formato
+//          YYYY-MM (default: mês atual — o normal ao rodar no dia 1)
 //
-// Saída: <out>/geral.png e <out>/detalhado__<unidade-slug>.png (um por
-// unidade com pelo menos 1 produto no comparativo), mais manifest.json
-// listando os arquivos gerados.
+// Saída: <out>/Geral - <Mês Ano>.png e <out>/Detalhado - <Unidade> - <Mês
+// Ano>.png (só unidades com pelo menos 1 produto pedido nesse mês), mais
+// manifest.json listando os arquivos gerados.
 
 import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import http from 'http';
@@ -95,7 +103,10 @@ async function main() {
     const linhasTodas = await page.evaluate(() => calcularComparativoUltimaCompra());
     await page.close();
 
-    const linhas = linhasTodas.filter(l => !OCULTOS_NA_IMAGEM.has(l.produto));
+    // Só produtos com compra registrada NESTE mês (pedido feito/repetido) —
+    // os que não foram repedidos ainda estão em uso e podem render mais,
+    // não entram na comparação (pedido do usuário, 25/09/2026).
+    const linhas = linhasTodas.filter(l => !OCULTOS_NA_IMAGEM.has(l.produto) && l.mesUltimaCompra === mes);
 
     // --- Imagem geral por unidade ---
     const porUnidade = new Map();
