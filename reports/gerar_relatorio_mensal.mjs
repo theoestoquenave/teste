@@ -101,12 +101,33 @@ async function main() {
     await page.route('**/jszip.min.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
     await page.goto(`http://localhost:${port}/index.html`, { waitUntil: 'load' });
     const linhasTodas = await page.evaluate(() => calcularComparativoUltimaCompra());
+    // Compras reais mescladas (histórico + pedidos aprovados), pra saber se
+    // um produto já tinha sido comprado ANTES da compra atual — primeira
+    // compra de um produto não tem "desde a última compra" pra comparar
+    // (pedido do usuário, 25/09/2026: excluir estreias, ex. linha Soft Care).
+    const comprasRaw = await page.evaluate(() => comprasReaisMescladas());
     await page.close();
+
+    const mesesPorChave = new Map(); // "unidade\u0001produto" -> Set de meses distintos comprados
+    comprasRaw.forEach(hc => {
+      if (!hc.unidade || !hc.produtoCatalogo || !hc.mes) return;
+      const k = hc.unidade + '\u0001' + hc.produtoCatalogo;
+      if (!mesesPorChave.has(k)) mesesPorChave.set(k, new Set());
+      mesesPorChave.get(k).add(hc.mes);
+    });
 
     // Só produtos com compra registrada NESTE mês (pedido feito/repetido) —
     // os que não foram repedidos ainda estão em uso e podem render mais,
-    // não entram na comparação (pedido do usuário, 25/09/2026).
-    const linhas = linhasTodas.filter(l => !OCULTOS_NA_IMAGEM.has(l.produto) && l.mesUltimaCompra === mes);
+    // não entram na comparação; produtos pedidos pela 1ª vez também ficam
+    // de fora (sem compra anterior pra comparar) (pedido do usuário,
+    // 25/09/2026).
+    const linhas = linhasTodas.filter(l => {
+      if (OCULTOS_NA_IMAGEM.has(l.produto)) return false;
+      if (l.mesUltimaCompra !== mes) return false;
+      const meses = mesesPorChave.get(l.unidade + '\u0001' + l.produto);
+      const primeiraCompra = !meses || meses.size <= 1;
+      return !primeiraCompra;
+    });
 
     // --- Imagem geral por unidade ---
     const porUnidade = new Map();
