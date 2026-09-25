@@ -5,11 +5,15 @@
 //
 // Rodar todo dia 1 do mês: o usuário sobe os pedidos do mês seguinte no
 // último dia do mês anterior (ex.: pedidos de outubro, aprovados em 30/09,
-// contam como compra de outubro — ver mesSeguinte() no index.html). No dia
-// 1, essas compras já estão refletidas nos dados, e o relatório mostra só
-// os produtos com compra registrada NESSE mês — quem não foi repedido
-// segue em uso (ainda pode render mais) e fica de fora, pedido explícito
-// do usuário (25/09/2026).
+// contam como compra de outubro — ver mesSeguinte() no index.html). O
+// relatório mostra só os produtos que acabaram de ser repedidos pro mês de
+// referência — mas o esperado/feito exibido é da compra ANTERIOR a essa (o
+// estoque que está sendo reposto), medido contra os serviços mais recentes
+// já registrados (ex.: pedido de outubro comparado com os serviços de
+// setembro — a compra nova em si ainda não tem nenhum serviço registrado
+// pra comparar). Quem não foi repedido segue em uso e fica de fora; quem
+// foi pedido pela 1ª vez também (sem compra anterior pra comparar).
+// Pedido do usuário (25/09/2026).
 //
 // Uso: node gerar_relatorio_mensal.mjs [--out DIR] [--mes YYYY-MM]
 //   --out  diretório de saída (default: ./saida, relativo a este arquivo)
@@ -100,34 +104,51 @@ async function main() {
     // erro de console poluir o log.
     await page.route('**/jszip.min.js', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: '' }));
     await page.goto(`http://localhost:${port}/index.html`, { waitUntil: 'load' });
-    const linhasTodas = await page.evaluate(() => calcularComparativoUltimaCompra());
-    // Compras reais mescladas (histórico + pedidos aprovados), pra saber se
-    // um produto já tinha sido comprado ANTES da compra atual — primeira
-    // compra de um produto não tem "desde a última compra" pra comparar
-    // (pedido do usuário, 25/09/2026: excluir estreias, ex. linha Soft Care).
-    const comprasRaw = await page.evaluate(() => comprasReaisMescladas());
+
+    // O pedido que acabou de ser aprovado pro mês de referência já virou a
+    // "última compra" nos dados (comprasReaisMescladas). Mas o relatório
+    // deve mostrar o desempenho da compra ANTERIOR a essa — o estoque que
+    // está sendo reposto — medido contra os serviços mais recentes
+    // disponíveis (ex.: pedido de outubro comparado com os serviços de
+    // setembro, não com outubro que ainda não tem dado nenhum). Pedido do
+    // usuário (25/09/2026). Por isso calculamos duas versões do
+    // comparativo dentro da página: COM o pedido novo (só pra saber quais
+    // produtos foram pedidos nesse ciclo) e SEM ele (pra pegar a compra
+    // anterior de cada um desses produtos). Isso também exclui produtos de
+    // 1ª compra de graça: sem compra anterior, eles simplesmente não
+    // aparecem na versão "sem o pedido novo".
+    const { linhasComPedidoNovo, linhasSemPedidoNovo } = await page.evaluate((mesRef) => {
+      const pedidosOriginais = pedidosState.pedidosBanho;
+      const linhasComPedidoNovo = calcularComparativoUltimaCompra();
+
+      pedidosState.pedidosBanho = pedidosOriginais.filter(p => {
+        if (p.status !== 'Aprovado' || !p.mes) return true;
+        return mesSeguinte(p.mes) !== mesRef;
+      });
+      const linhasSemPedidoNovo = calcularComparativoUltimaCompra();
+
+      pedidosState.pedidosBanho = pedidosOriginais;
+      return { linhasComPedidoNovo, linhasSemPedidoNovo };
+    }, mes);
     await page.close();
 
-    const mesesPorChave = new Map(); // "unidade\u0001produto" -> Set de meses distintos comprados
-    comprasRaw.forEach(hc => {
-      if (!hc.unidade || !hc.produtoCatalogo || !hc.mes) return;
-      const k = hc.unidade + '\u0001' + hc.produtoCatalogo;
-      if (!mesesPorChave.has(k)) mesesPorChave.set(k, new Set());
-      mesesPorChave.get(k).add(hc.mes);
-    });
+    // Produtos que tiveram compra atribuída ao mês de referência (o pedido
+    // que acabou de ser aprovado) — é o filtro de "o que foi pedido nesse
+    // ciclo", não a base do cálculo de esperado/feito.
+    const pedidosNesteMes = new Set(
+      linhasComPedidoNovo
+        .filter(l => l.mesUltimaCompra === mes)
+        .map(l => l.unidade + '\u0001' + l.produto)
+    );
 
-    // Só produtos com compra registrada NESTE mês (pedido feito/repetido) —
-    // os que não foram repedidos ainda estão em uso e podem render mais,
-    // não entram na comparação; produtos pedidos pela 1ª vez também ficam
-    // de fora (sem compra anterior pra comparar) (pedido do usuário,
-    // 25/09/2026).
-    const linhas = linhasTodas.filter(l => {
-      if (OCULTOS_NA_IMAGEM.has(l.produto)) return false;
-      if (l.mesUltimaCompra !== mes) return false;
-      const meses = mesesPorChave.get(l.unidade + '\u0001' + l.produto);
-      const primeiraCompra = !meses || meses.size <= 1;
-      return !primeiraCompra;
-    });
+    // Linha final: dados da compra ANTERIOR (esperado/feito reais, contra
+    // os serviços já registrados), só pros produtos que foram pedidos
+    // nesse ciclo. Produtos não repedidos, ou pedidos pela 1ª vez (sem
+    // compra anterior — não aparecem em linhasSemPedidoNovo), ficam de
+    // fora (pedido do usuário, 25/09/2026).
+    const linhas = linhasSemPedidoNovo.filter(l =>
+      !OCULTOS_NA_IMAGEM.has(l.produto) && pedidosNesteMes.has(l.unidade + '\u0001' + l.produto)
+    );
 
     // --- Imagem geral por unidade ---
     const porUnidade = new Map();
