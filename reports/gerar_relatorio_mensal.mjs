@@ -40,6 +40,12 @@ function mesLabel(mesYYYYMM) {
   const [y, m] = mesYYYYMM.split('-').map(Number);
   return `${MESES_PT[m - 1]}/${y}`;
 }
+// Versão sem "/" pra usar em nome de arquivo (a barra vira separador de pasta).
+function mesLabelArquivo(mesYYYYMM) {
+  const [y, m] = mesYYYYMM.split('-').map(Number);
+  const nome = MESES_PT[m - 1];
+  return `${nome.charAt(0).toUpperCase()}${nome.slice(1)} ${y}`;
+}
 function slug(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
 }
@@ -73,6 +79,7 @@ async function main() {
   const hoje = new Date();
   const mes = mesArg || `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
   const mesLbl = mesLabel(mes);
+  const mesLblArquivo = mesLabelArquivo(mes);
 
   const port = 8700 + Math.floor(Math.random() * 200);
   const server = await serveStatic(REPO_ROOT, port);
@@ -114,7 +121,8 @@ async function main() {
 
     const pageGeral = await browser.newPage({ viewport: { width: 960, height: 800 }, deviceScaleFactor: 1 });
     await pageGeral.goto('file://' + tmpGeral, { waitUntil: 'load' });
-    const geralPng = path.join(outDir, 'geral.png');
+    const geralFileName = `Geral - ${mesLblArquivo}.png`;
+    const geralPng = path.join(outDir, geralFileName);
     await (await pageGeral.$('.card')).screenshot({ path: geralPng });
     await pageGeral.close();
     fs.unlinkSync(tmpGeral);
@@ -143,7 +151,7 @@ async function main() {
 
       const pageDet = await browser.newPage({ viewport: { width: 960, height: 800 }, deviceScaleFactor: 1 });
       await pageDet.goto('file://' + tmpDet, { waitUntil: 'load' });
-      const fileName = `detalhado__${slug(unidade)}.png`;
+      const fileName = `Detalhado - ${unidade} - ${mesLblArquivo}.png`;
       const outPath = path.join(outDir, fileName);
       await (await pageDet.$('.card')).screenshot({ path: outPath });
       await pageDet.close();
@@ -151,7 +159,7 @@ async function main() {
       arquivosDetalhado.push({ unidade, arquivo: fileName, produtos: rows.length });
     }
 
-    const manifest = { mes, mesLabel: mesLbl, geradoEm: new Date().toISOString(), geral: 'geral.png', detalhado: arquivosDetalhado };
+    const manifest = { mes, mesLabel: mesLbl, geradoEm: new Date().toISOString(), geral: geralFileName, detalhado: arquivosDetalhado };
     fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
     console.log(JSON.stringify(manifest, null, 2));
   } finally {

@@ -30,11 +30,33 @@ Gera `manifest.json` com a lista de arquivos e a unidade de cada um.
 continuam no comparativo interno do painel) — pedido do usuário em
 25/09/2026, ver `OCULTOS_NA_IMAGEM` no script.
 
-## Entrega (decidido em 25/09/2026)
+## Entrega (decidido em 25/09/2026, ajustado no mesmo dia)
 
 Sem infraestrutura de envio automático por WhatsApp (exigiria guardar
-credenciais de API fora do HTML público do painel). O fluxo é:
+credenciais de API fora do HTML público do painel). A ideia inicial era subir
+as imagens pro Google Drive, mas isso esbarrou num limite prático: fazer
+upload via ferramenta MCP exige embutir o conteúdo do arquivo em base64
+dentro da própria chamada — pra uma imagem de ~115KB isso custou ~1 milhão de
+tokens de contexto num teste real, e as 13 imagens juntas passariam de 10
+milhões. Inviável como rotina mensal.
 
-1. Uma Routine agendada roda este script todo fim de mês.
-2. As imagens sobem pro Google Drive, pasta "Relatórios de Uso - Painel Nave".
-3. O usuário é avisado (notificação) e encaminha manualmente pelo WhatsApp.
+O fluxo ficou:
+
+1. Uma Routine agendada roda este script todo fim de mês (ver
+   `agendamento` abaixo).
+2. As imagens são entregues direto pro usuário via `SendUserFile` (chega no
+   app/chat, sem re-embutir o binário em texto — muito mais barato).
+3. O usuário encaminha manualmente pelo WhatsApp a partir daí (imagem geral
+   pros líderes — grupo e individual —, as 12 detalhadas só pra coordenadora).
+
+Se quiser arquivar no Drive, hoje isso fica por conta do usuário salvar
+manualmente a partir do que ele recebe.
+
+## Agendamento
+
+Routine (`create_trigger`) com cron no formato `MM HH 28-31 * *` (campo de
+dia-do-mês = 28-31 — roda em todo dia 28, 29, 30 e 31 de cada mês, já que
+cron não tem um jeito nativo de expressar "último dia do mês"). O prompt da
+Routine checa se amanhã é dia 1 antes de gerar o relatório; se não for, é
+`noop` (o mês ainda não fechou). Isso garante que o relatório sai
+exatamente no último dia, independente do mês ter 28, 29, 30 ou 31 dias.
