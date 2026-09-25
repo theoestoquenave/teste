@@ -112,7 +112,7 @@ async function main() {
     const tmpGeral = path.join(outDir, '_tmp_geral.html');
     fs.writeFileSync(tmpGeral, templateGeral);
 
-    const pageGeral = await browser.newPage({ viewport: { width: 960, height: 800 }, deviceScaleFactor: 2 });
+    const pageGeral = await browser.newPage({ viewport: { width: 960, height: 800 }, deviceScaleFactor: 1 });
     await pageGeral.goto('file://' + tmpGeral, { waitUntil: 'load' });
     const geralPng = path.join(outDir, 'geral.png');
     await (await pageGeral.$('.card')).screenshot({ path: geralPng });
@@ -141,7 +141,7 @@ async function main() {
       const tmpDet = path.join(outDir, `_tmp_det_${slug(unidade)}.html`);
       fs.writeFileSync(tmpDet, templateDet);
 
-      const pageDet = await browser.newPage({ viewport: { width: 960, height: 800 }, deviceScaleFactor: 2 });
+      const pageDet = await browser.newPage({ viewport: { width: 960, height: 800 }, deviceScaleFactor: 1 });
       await pageDet.goto('file://' + tmpDet, { waitUntil: 'load' });
       const fileName = `detalhado__${slug(unidade)}.png`;
       const outPath = path.join(outDir, fileName);
