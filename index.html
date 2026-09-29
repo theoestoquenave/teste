@@ -3167,7 +3167,7 @@ function renderHsPreview(){
   const card = document.getElementById('hs-preview-card');
   if (!hsPreview){ card.style.display = 'none'; return; }
   card.style.display = '';
-  const { itens, arquivos, totalAtendimentos } = hsPreview;
+  const { itens, arquivos, totalAtendimentos, colisoes } = hsPreview;
   const unidadesDist = distintosUnidadeHs(itens);
   const unidadesPendentes = unidadesDist.filter(([,v]) => !v).length;
   const servicosDistintos = new Set(itens.map(i => i.servico));
@@ -3184,14 +3184,23 @@ function renderHsPreview(){
 
   const quedas = gruposComQueda(itens);
   const avisosDiv = document.getElementById('hs-preview-avisos');
-  avisosDiv.innerHTML = quedas.length ? `
+  avisosDiv.innerHTML =
+    (colisoes && colisoes.length ? `
+    <div class="readonly-banner show" style="margin-bottom:10px;">
+      <strong>⚠ ${colisoes.length} grupo(s) apareceram em mais de um arquivo desse lote</strong> — confira se não selecionou o mesmo arquivo duas vezes sem querer. Mantive só a última leitura de cada um (não somei):
+      <ul style="margin:6px 0 0; padding-left:20px;">
+        ${colisoes.slice(0,10).map(c => `<li>${escapeHtml(c.unidade || '-')} · ${escapeHtml(c.servico)} · ${escapeHtml(c.mes)}</li>`).join('')}
+        ${colisoes.length > 10 ? `<li>… e mais ${colisoes.length - 10}.</li>` : ''}
+      </ul>
+    </div>` : '')
+    + (quedas.length ? `
     <div class="readonly-banner show" style="margin-bottom:10px;">
       <strong>⚠ ${quedas.length} grupo(s) com MENOS atendimentos do que já está salvo</strong> — sinal de que o(s) arquivo(s) pode(m) estar parcial(is) (só parte do mês). Salvar vai <strong>substituir</strong> a contagem completa atual por uma menor, perdendo atendimento desses grupos:
       <ul style="margin:6px 0 0; padding-left:20px;">
         ${quedas.slice(0,10).map(q => `<li>${escapeHtml(q.unidade || q.unidadeOriginal)} · ${escapeHtml(q.servico)} · ${escapeHtml(q.mes)}: ${q.atendimentosAntes} → ${q.atendimentos}</li>`).join('')}
         ${quedas.length > 10 ? `<li>… e mais ${quedas.length - 10}.</li>` : ''}
       </ul>
-    </div>` : '';
+    </div>` : '');
 
   const tbodyUn = document.querySelector('#hs-preview-unidades tbody');
   tbodyUn.innerHTML = unidadesDist.map(([orig, atual]) => `
@@ -3892,23 +3901,23 @@ function setupConsumo(){
         if (gruposDoArquivo.length){ arquivos.push(file.name); todosGrupos = todosGrupos.concat(gruposDoArquivo); }
       }
       if (!todosGrupos.length){ toast('Não encontrei nenhum atendimento nos arquivo(s) selecionados — confira o formato (colunas LOJA, SERVICO, DATA).', 'error'); return; }
-      const totalAtendimentos = todosGrupos.reduce((s,g) => s + g.atendimentos, 0);
-      // combina grupos repetidos entre arquivos diferentes do mesmo lote —
-      // não deveria acontecer (cada arquivo é de uma unidade), mas protege
-      // contra o mesmo arquivo sendo selecionado duas vezes.
+      // Combina por unidade+serviço+mês. Se a MESMA combinação aparecer em
+      // mais de um arquivo do lote (ex.: o mesmo arquivo selecionado duas
+      // vezes sem querer, ou dois exports sobrepostos), mantém só a última
+      // — somar dobraria a contagem, já que cada arquivo é sempre a
+      // recontagem completa daquele mês, não um incremento (mesma lógica do
+      // "reimportar substitui" usada no resto desse fluxo). Colisão vira
+      // aviso pro usuário conferir se não selecionou o mesmo arquivo 2x.
       const combinados = new Map();
+      const colisoes = [];
       todosGrupos.forEach(g => {
         const chave = chaveHistoricoServico(g);
-        if (!combinados.has(chave)) combinados.set(chave, { ...g });
-        else {
-          const existente = combinados.get(chave);
-          existente.atendimentos += g.atendimentos;
-          existente.atendimentosGrande = (existente.atendimentosGrande||0) + (g.atendimentosGrande||0);
-          existente.atendimentosMedio = (existente.atendimentosMedio||0) + (g.atendimentosMedio||0);
-          existente.valorTotal = Math.round((existente.valorTotal + g.valorTotal)*100)/100;
-        }
+        if (combinados.has(chave)) colisoes.push({ unidade: g.unidade || g.unidadeOriginal, servico: g.servico, mes: g.mes });
+        combinados.set(chave, g);
       });
-      hsPreview = { itens: [...combinados.values()], arquivos, totalAtendimentos };
+      const itens = [...combinados.values()];
+      const totalAtendimentos = itens.reduce((s,g) => s + g.atendimentos, 0);
+      hsPreview = { itens, arquivos, totalAtendimentos, colisoes };
       renderHsPreview();
     }catch(err){
       toast('Não consegui ler esse(s) arquivo(s): ' + err.message, 'error');
