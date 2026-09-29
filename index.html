@@ -751,6 +751,7 @@
       <p class="sub" style="margin-top:8px;">Export do sistema de agendamento (LOJA, SERVICO, DATA, PORTE, VALOR...) — aceita vários arquivos de uma vez (um por unidade). Guarda a quantidade de atendimentos por serviço; o cruzamento com a relação Serviço × Produto pra calcular consumo esperado acontece quando o relatório comparativo for montado.</p>
       <div id="hs-preview-card" style="display:none; margin-top:16px;">
         <div class="sub" id="hs-preview-resumo" style="margin-bottom:10px;"></div>
+        <div id="hs-preview-avisos"></div>
         <h2 style="font-size:13px; margin-bottom:6px;">Unidades encontradas nos arquivos</h2>
         <div class="tablewrap"><table id="hs-preview-unidades">
           <thead><tr><th>Nome no arquivo</th><th>Unidade no painel</th></tr></thead>
@@ -2937,6 +2938,19 @@ function parseHistoricoServicosRows(rows){
 function chaveHistoricoServico(item){
   return [item.unidadeOriginal, item.servico, item.mes].join('|').toUpperCase();
 }
+// Cada grupo (unidade+serviço+mês) importado SUBSTITUI o já salvo — seguro
+// pra reimportar o mesmo período (o arquivo novo é sempre o recálculo
+// completo daquele mês), mas um arquivo PARCIAL (só parte do mês) sobrescreve
+// silenciosamente uma contagem completa por uma incompleta, perdendo
+// atendimento. Detecta isso comparando com o que já está salvo (pedido do
+// usuário, 29/09/2026).
+function gruposComQueda(itensNovos){
+  const existentes = new Map((pedidosState.historicoServicos||[]).map(i => [chaveHistoricoServico(i), i]));
+  return itensNovos.map(i => {
+    const ex = existentes.get(chaveHistoricoServico(i));
+    return ex && i.atendimentos < ex.atendimentos ? { ...i, atendimentosAntes: ex.atendimentos } : null;
+  }).filter(Boolean);
+}
 
 let rspPreview = null; // itens lidos do arquivo, antes de confirmar
 let rendPreview = null;
@@ -3151,6 +3165,17 @@ function renderHsPreview(){
     + (pedidosState.relacaoServicoProduto && pedidosState.relacaoServicoProduto.length
         ? `<br>${servicosDistintos.size} serviço(s) distinto(s) no histórico, ${servicosSemRelacao} ainda sem entrada na relação Serviço × Produto (não impede salvar — só entra no cálculo de consumo esperado quando a relação tiver esse serviço).`
         : '');
+
+  const quedas = gruposComQueda(itens);
+  const avisosDiv = document.getElementById('hs-preview-avisos');
+  avisosDiv.innerHTML = quedas.length ? `
+    <div class="readonly-banner show" style="margin-bottom:10px;">
+      <strong>⚠ ${quedas.length} grupo(s) com MENOS atendimentos do que já está salvo</strong> — sinal de que o(s) arquivo(s) pode(m) estar parcial(is) (só parte do mês). Salvar vai <strong>substituir</strong> a contagem completa atual por uma menor, perdendo atendimento desses grupos:
+      <ul style="margin:6px 0 0; padding-left:20px;">
+        ${quedas.slice(0,10).map(q => `<li>${escapeHtml(q.unidade || q.unidadeOriginal)} · ${escapeHtml(q.servico)} · ${escapeHtml(q.mes)}: ${q.atendimentosAntes} → ${q.atendimentos}</li>`).join('')}
+        ${quedas.length > 10 ? `<li>… e mais ${quedas.length - 10}.</li>` : ''}
+      </ul>
+    </div>` : '';
 
   const tbodyUn = document.querySelector('#hs-preview-unidades tbody');
   tbodyUn.innerHTML = unidadesDist.map(([orig, atual]) => `
@@ -3880,6 +3905,14 @@ function setupConsumo(){
   document.getElementById('hs-confirmar').addEventListener('click', async () => {
     if (!hsPreview) return;
     const novosItens = hsPreview.itens;
+    const quedas = gruposComQueda(novosItens);
+    if (quedas.length){
+      const resumoQuedas = quedas.slice(0,8).map(q => `${q.unidade || q.unidadeOriginal} · ${q.servico} · ${q.mes}: ${q.atendimentosAntes} → ${q.atendimentos}`).join('\n');
+      const ok0 = window.confirm(
+        `${quedas.length} grupo(s) vão perder atendimento (o arquivo novo tem menos do que já está salvo — sinal de arquivo parcial):\n\n${resumoQuedas}${quedas.length > 8 ? `\n… e mais ${quedas.length - 8}.` : ''}\n\nSalvar mesmo assim?`
+      );
+      if (!ok0) return;
+    }
     const chavesExistentes = new Set((pedidosState.historicoServicos||[]).map(chaveHistoricoServico));
     const novos = novosItens.filter(i => !chavesExistentes.has(chaveHistoricoServico(i))).length;
     const atualizados = novosItens.length - novos;
