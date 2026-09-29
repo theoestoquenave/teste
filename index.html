@@ -3336,6 +3336,80 @@ const PRODUTOS_EXCLUIDOS_COMPARATIVO = new Set([
   'PÓ HEMOSTATICO',
   'SHAMPOO COLOR WHITE 500ML',
 ]);
+// Pedido do usuário (29/09/2026): a tela "Saída de serviços" lista todo
+// historicoServicos importado, mas o export do sistema de agendamento traz
+// TODOS os setores da unidade (clínico, hotel, banho e tosa) — tirar da
+// tela os serviços que não são de banho e tosa, pra não misturar com o
+// que interessa pro consumo de produto. Classificado por nome de serviço
+// (não muda o dado salvo, só o que aparece nessa tela).
+const SERVICOS_SETOR_CLINICO = new Set([
+  'Abdominocentese', 'Acupuntura - Pacote de 10 Sessões', 'Acupuntura - Pacote de 5 Sessões',
+  'Alt', 'Anestesia Odonto de 0 a 10 kgs', 'Análise De Líquidos Cavitários (Efusões)',
+  'Aplicação Cobalamina (B12) - Pacote de 6 aplicações', 'Aplicação Cobalamina (B12) - única',
+  'Aplicação ProHeart de 0 a 10 Kg', 'Aplicação Vacina Giardia', 'Aplicação Vacina Gripe (injetável)',
+  'Aplicação Vacina Gripe (oral)', 'Aplicação Vacina Múltipla MSD - DHPPi+L',
+  'Aplicação Vacina Múltipla ZOETIS', 'Aplicação Vacina Quadrupla Felina V4',
+  'Aplicação Vacina Quíntupla Felina V5', 'Aplicação Vacina Raiva', 'Aplicação de Amoxilina',
+  'Aplicação de Buscopan Composto', 'Aplicação de Cerenia/Maropitant de 11 a 15 Kg',
+  'Aplicação de Dexametasona', 'Aplicação de Dipirona', 'Aplicação de Furosemida',
+  'Aplicação de Hidratação Externo', 'Aplicação de Librela de 0 a 10 kg - Librela 5 mg',
+  'Aplicação de Meloxicam', 'Aplicação de Metadona', 'Aplicação de Midazolam',
+  'Aplicação de Ondansetrona', 'Aplicação de Outros Medicamentos', 'Aplicação de Solensia',
+  'Ast', 'Avaliação Cirúrgica', 'Bravecto 365 Injetável de 01 a 05 kg',
+  'Bravecto 365 Injetável de 11 a 15 kg', 'Cistocentese guiada por ultrassom',
+  'Citologia Aspirativa por Agulha Fina (CAAF) - Prazo 3 dias úteis',
+  'Citologia De Ouvido (1 Conduto)', 'Citologia De Ouvido (2 Condutos)', 'Citologia De Pele',
+  'Colesterol', 'Consulta Clínico NAVE Casa Verde', 'Consulta Clínico NAVE Jacareí',
+  'Consulta Clínico NAVE Lapa', 'Consulta Clínico NAVE Planalto Paulista',
+  'Consulta Clínico NAVE SJC', 'Consulta Clínico NAVE São Vicente', 'Consulta Clínico NAVE Tucuruvi',
+  'Consulta Clínico NAVE Vila Prudente', 'Consulta Clínico Sáb, Dom e Feriados LAPA e PLANALTO',
+  'Consulta Especialista - Oncologia', 'Coproparasitológico Simples (1 Amostra)',
+  'Corte de unha avulso (sem consulta) com veterinário', 'Creatinina', 'Cultura Antibiograma + Mic',
+  'Curativo simples contínuo (pacote de 5 trocas de curativos)', 'Ecocardiograma',
+  'Eletrocardiograma com Clínico', 'Fibrinogênio', 'Fisioterapia e Reabilitação - Pacote de 10 Sessões',
+  'Fluidoterapia', 'Fluidoterapia + Medicação + Nutrição - exceto Convenia, Cerenia e Meropenem',
+  'Fosfatase Alcalina', 'Frutosamina', 'Gama Gt (Ggt) Sérico', 'Glicemia fita consultório',
+  'Histopatológico - 1 Sítio - Sem Margem',
+  'Leva e Trás Tomografia Tomvs (Transferencia entre Animaniacs x Tomvs)',
+  'Leva e Tráz (1 a 3 Km)', 'Leva e Tráz (3 a 6 Km)', 'Leva e Tráz (acima 6 Km)',
+  'Leva e Tráz (externo)', 'Leva e Tráz (taxi dog cortesia)', 'Micológico Direto',
+  'Nodulectomia P/Exérese de Tumor (até 3 cm)', 'Ozônio', 'Pcr Chlamydophila Felis - Felino',
+  'Pcr Felv - Dna Proviral (Virus Da Leucemia Felina) - Felino', 'Pcr Giardia Spp.',
+  'Perfil Canino Wevets Completo (Hg, Ur, Cr, Alt, Fa, Alb, Trigl, Col, Na, K, Ca, P, Glic) B2B',
+  'Perfil Canino Wevets Reduzido (Hg, Ur, Cr, Alt, Fa, Alb, Glic) B2B',
+  'Perfil Coagulograma (Tp/Ttpa)',
+  'Perfil Felino Wevets Reduzido (Hg, Ur, Cr, Alt, Fa, Alb, Ggt, Glic) B2B',
+  'Perfil Renal (Urina I + Pu/Cu)',
+  'Perfil Wevets Silver (Hg+Htz+Ret/Fru/Ur/Cre/Alt/Ast/Fa/Ggt/Pt/Col/Tri/P/Fe/Ca/Gli) B2B',
+  'Pesquisa De Ectoparasitas',
+  'Plano WeVets Aplicação de Injeção Intravenosa (IV) - Com Medicação',
+  'Plano WeVets Aplicação de Injeção Subcutânea ou Intramuscular (SC / IM) - Com Medicação',
+  'Plano WeVets Consulta Clínico Geral',
+  'Plano WeVets Consulta Clínico Geral para definição do protocolo vacinal',
+  'Plano WeVets Retorno Clínico Geral',
+  'Plano WeVets Soroterapia/Fluidoterapia (fisiológico, ringer, glicofisio)',
+  'Plano WeVets Vacina Polivalente / V7 / V8 / V10', 'Plano WeVets Vacina da Gripe',
+  'Plano WeVets Vacina da Raiva', 'Potássio (K)', 'Proteína Total E Frações',
+  'Protocolo SUC - Solidago, Ubichinon, Coenzyme', 'Raio X - 1 Região - SEG a SEX',
+  'Raio X - 1 Região - Sábados e Feriados', 'Raspado de pele para citologia',
+  'Retorno Clínico NAVE Casa Verde', 'Retorno Clínico NAVE Lapa',
+  'Retorno Clínico NAVE Planalto Paulista', 'Retorno Clínico NAVE SJC',
+  'Retorno Clínico NAVE São Vicente', 'Retorno Clínico NAVE Tucuruvi',
+  'Retorno Clínico NAVE Vila Prudente', 'Retorno Especialista - Ortopedia (em até 30 dias da consulta)',
+  'Sessão de Acupuntura', 'Somente Levar ou Trazer (1 a 3 Km)', 'Somente Levar ou Trazer (3 a 6 Km)',
+  'Sorologia (Imunocromatografia) Fiv (Igg)/Felv (Ag)', 'Sorologia Fiv / Felv INTERNO NAVE',
+  'Supressão Com Dexametasona - Dose Baixa - (2) Dosagens (Rie)',
+  'Teste de Fluoresceína + Teste de Jones (Bilateral)',
+  'Tratamento Odontológico Dra Mariana (graus I, II e III)', 'Triglicérides',
+  'Ultrassom Abdominal SEG a SEX', 'Urina I', 'Urocultura E Antibiograma', 'Uréia',
+]);
+// Setor de hotel/hospedagem — pedido do usuário (29/09/2026). Só as 2
+// diárias apareceram no histórico importado até agora; se surgir outro
+// serviço de hotel (ex.: creche, pensão), adicionar aqui.
+const SERVICOS_SETOR_HOTEL = new Set([
+  'Diária 24 horas',
+  'Diária Avulsa',
+]);
 // Casos em que a última compra registrada claramente não reflete o ritmo
 // real de reposição (só uma compra isolada há vários meses, com uso muito
 // acima do que ela cobriria) — o usuário informa uma quantidade mensal
@@ -3968,7 +4042,8 @@ function setupSaidaServicos(){
 }
 
 function renderSaidaServicos(){
-  const dados = pedidosState.historicoServicos || [];
+  const dados = (pedidosState.historicoServicos || [])
+    .filter(g => !SERVICOS_SETOR_CLINICO.has(g.servico) && !SERVICOS_SETOR_HOTEL.has(g.servico));
   const fu = document.getElementById('ss-unidade').value;
   const fm = document.getElementById('ss-mes').value;
 
