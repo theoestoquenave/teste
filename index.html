@@ -380,7 +380,7 @@
     </div>
     <div class="card">
       <div class="tablewrap"><table id="ap-tabela">
-        <thead><tr><th>Unidade</th><th>Mês</th><th>Itens do pedido</th><th class="num">Qtde (UN)</th><th class="num">Valor total</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Unidade</th><th>Mês</th><th>Itens do pedido</th><th class="num">Qtde (UN)</th><th class="num">Valor total</th><th>Rendimento</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -1586,11 +1586,39 @@ function observacoesUnicasPedido(p){
 // calculado do Histórico de Compras) — mesma fonte já usada na Análise de
 // Consumo. Produto sem nenhuma compra registrada ainda não entra na conta;
 // o pedido fica marcado com "~" e um aviso quando isso acontece.
+// Status resumido de rendimento por unidade+produto, pra avaliar na hora de
+// aprovar se vale a pena comprar de novo: olha a última compra registrada
+// (histórico, não o pedido pendente em si) e compara quantos atendimentos
+// ela deveria render x quantos já foram feitos desde então. "Abaixo do
+// esperado" = ainda deve ter sobra da compra anterior (nem sempre vale
+// comprar já); "acima do esperado" = já rendeu mais que devia, provavelmente
+// acabou (reforça a compra).
+function rendimentoStatusPorUnidadeProduto(){
+  const mapa = new Map();
+  calcularComparativoUltimaCompra().forEach(l => mapa.set(l.unidade + '\u0001' + l.produto, l));
+  return mapa;
+}
+function rendimentoBadgeHtml(mapaRend, unidade, produto){
+  const l = mapaRend.get(unidade + '\u0001' + produto);
+  if (!l){
+    return `<span class="chip obs" title="Nenhuma compra anterior desse produto registrada nessa unidade — sem base pra comparar.">sem histórico</span>`;
+  }
+  if (l.servicosEsperados == null){
+    return `<span class="chip obs" title="Última compra em ${l.mesUltimaCompra} (${fmtNum(l.quantidadeUltimaCompra,0)} un.), mas sem rendimento cadastrado pra esse produto — não dá pra calcular o esperado.">sem esperado calculado</span>`;
+  }
+  const cls = l.desvioPct < -20 ? 'pendente' : 'aprovado';
+  const label = l.desvioPct < -20 ? 'abaixo do esperado' : (l.desvioPct > 20 ? 'acima do esperado' : 'dentro do esperado');
+  const pct = `${l.desvioPct>0?'+':''}${fmtNum(l.desvioPct,0)}%`;
+  const detalhe = `Última compra em ${l.mesUltimaCompra}: ${fmtNum(l.quantidadeUltimaCompra,0)} un. deveria(m) render ${fmtNum(l.servicosEsperados,0)} atendimento(s); ${fmtNum(l.servicosFeitos,0)} já feito(s) desde então.${l.estimado?' (rendimento estimado)':''}`;
+  return `<span class="chip ${cls}" title="${escapeHtml(detalhe)}">${label} (${pct})</span>`;
+}
+
 function construirLinhasAprovacaoHtml(pedidos){
   if (!pedidos.length){
-    return '<tr><td colspan="8"><div class="empty">Nenhum pedido encontrado com esse filtro.</div></td></tr>';
+    return '<tr><td colspan="9"><div class="empty">Nenhum pedido encontrado com esse filtro.</div></td></tr>';
   }
   const valorMedio = valorUnitarioMedioPorProduto();
+  const mapaRend = rendimentoStatusPorUnidadeProduto();
   return pedidos.map(p => {
     const totalQtd = p.itens.reduce((s,it) => s + Number(it.quantidade||0), 0);
     let valorTotalPedido = 0, itensSemPreco = 0;
@@ -1613,6 +1641,7 @@ function construirLinhasAprovacaoHtml(pedidos){
         <td>${p.itens.length} item(ns)</td>
         <td class="num mono">${totalQtd}</td>
         ${valorTd}
+        <td></td>
         ${obsResumoTd}
         <td><span class="chip ${p.status.toLowerCase()}">${p.status}</span></td>
         <td>
@@ -1633,6 +1662,7 @@ function construirLinhasAprovacaoHtml(pedidos){
         <td class="item-produto">↳ ${it.produto}</td>
         <td class="num"><input type="number" min="0" step="1" class="qtd-input" value="${it.quantidade}" style="width:80px;" ${readOnly?'disabled':''}></td>
         <td></td>
+        <td>${rendimentoBadgeHtml(mapaRend, p.unidade, it.produto)}</td>
         ${obsItemTd}
         <td class="item-origem" colspan="2">${origemTextoItem(it)}</td>
       </tr>`;
@@ -1643,7 +1673,7 @@ function construirLinhasAprovacaoHtml(pedidos){
       <tr class="order-additem-row" data-id="${p.id}">
         <td></td>
         <td></td>
-        <td colspan="6">
+        <td colspan="7">
           <div class="additem-wrap">
             <input type="text" class="additem-busca" list="${datalistId}" placeholder="+ Adicionar item ao pedido (digite pra buscar no catálogo)...">
             <datalist id="${datalistId}">${datalistOpts}</datalist>
