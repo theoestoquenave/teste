@@ -380,7 +380,7 @@
     </div>
     <div class="card">
       <div class="tablewrap"><table id="ap-tabela">
-        <thead><tr><th>Unidade</th><th>Mês</th><th>Itens do pedido</th><th class="num">Qtde (UN)</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Unidade</th><th>Mês</th><th>Itens do pedido</th><th class="num">Qtde (UN)</th><th class="num">Valor total</th><th>Observação</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -1566,12 +1566,28 @@ function observacoesUnicasPedido(p){
    importação (com o(s) texto(s) completo(s) no title, pra não precisar
    abrir mais nada pra ler); e, na linha de cada item, a observação daquele
    item específico. */
+// Valor total do pedido é uma ESTIMATIVA: o sistema de pedidos das
+// unidades não manda preço nenhum na planilha (vem sempre "0,00"), então
+// usamos o preço médio real pago por produto (valorUnitarioMedioPorProduto,
+// calculado do Histórico de Compras) — mesma fonte já usada na Análise de
+// Consumo. Produto sem nenhuma compra registrada ainda não entra na conta;
+// o pedido fica marcado com "~" e um aviso quando isso acontece.
 function construirLinhasAprovacaoHtml(pedidos){
   if (!pedidos.length){
-    return '<tr><td colspan="7"><div class="empty">Nenhum pedido encontrado com esse filtro.</div></td></tr>';
+    return '<tr><td colspan="8"><div class="empty">Nenhum pedido encontrado com esse filtro.</div></td></tr>';
   }
+  const valorMedio = valorUnitarioMedioPorProduto();
   return pedidos.map(p => {
     const totalQtd = p.itens.reduce((s,it) => s + Number(it.quantidade||0), 0);
+    let valorTotalPedido = 0, itensSemPreco = 0;
+    p.itens.forEach(it => {
+      const preco = valorMedio.get(it.produto);
+      if (preco == null){ itensSemPreco++; return; }
+      valorTotalPedido += preco * Number(it.quantidade||0);
+    });
+    const valorTd = itensSemPreco
+      ? `<td class="num mono" title="${itensSemPreco} de ${p.itens.length} item(ns) sem preço médio calculado ainda (nenhuma compra registrada desse produto) — valor abaixo do real.">~ ${fmtBRL(valorTotalPedido)}</td>`
+      : `<td class="num mono">${fmtBRL(valorTotalPedido)}</td>`;
     const obsPedido = observacoesUnicasPedido(p);
     const obsResumoTd = obsPedido.length
       ? `<td><span class="chip obs" title="${escapeHtml(obsPedido.join(' · '))}">📝 ${obsPedido.length > 1 ? obsPedido.length + ' observações' : 'Observação'}</span></td>`
@@ -1582,6 +1598,7 @@ function construirLinhasAprovacaoHtml(pedidos){
         <td class="mono">${p.mes}</td>
         <td>${p.itens.length} item(ns)</td>
         <td class="num mono">${totalQtd}</td>
+        ${valorTd}
         ${obsResumoTd}
         <td><span class="chip ${p.status.toLowerCase()}">${p.status}</span></td>
         <td>
@@ -1601,6 +1618,7 @@ function construirLinhasAprovacaoHtml(pedidos){
         <td></td>
         <td class="item-produto">↳ ${it.produto}</td>
         <td class="num"><input type="number" min="0" step="1" class="qtd-input" value="${it.quantidade}" style="width:80px;" ${readOnly?'disabled':''}></td>
+        <td></td>
         ${obsItemTd}
         <td class="item-origem" colspan="2">${origemTextoItem(it)}</td>
       </tr>`;
@@ -1611,7 +1629,7 @@ function construirLinhasAprovacaoHtml(pedidos){
       <tr class="order-additem-row" data-id="${p.id}">
         <td></td>
         <td></td>
-        <td colspan="5">
+        <td colspan="6">
           <div class="additem-wrap">
             <input type="text" class="additem-busca" list="${datalistId}" placeholder="+ Adicionar item ao pedido (digite pra buscar no catálogo)...">
             <datalist id="${datalistId}">${datalistOpts}</datalist>
