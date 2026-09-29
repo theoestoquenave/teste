@@ -318,13 +318,13 @@
     <div class="topbar">
       <div>
         <h1>Importar pedidos de uma planilha</h1>
-        <p>Suba o arquivo .xlsx exportado no formato "Pedidos" (Pedido ID, Unidade, Nome do Produto, Quantidade...). Cada linha é reconhecida automaticamente pelo catálogo do produto e importada pro pedido certo. Os itens entram como Pendente, do mesmo jeito que um pedido lançado manualmente.</p>
+        <p>Suba o(s) arquivo(s) .xlsx exportado(s) no formato "Pedidos" (Pedido ID, Unidade, Nome do Produto, Quantidade...) — aceita vários de uma vez (ex.: um por unidade). Cada linha é reconhecida automaticamente pelo catálogo do produto e importada pro pedido certo. Os itens entram como Pendente, do mesmo jeito que um pedido lançado manualmente.</p>
       </div>
     </div>
     <div class="card">
       <div class="row" style="align-items:center;">
-        <input type="file" id="im-arquivo" accept=".xlsx">
-        <button class="btn-primary" id="im-processar" disabled>Processar arquivo</button>
+        <input type="file" id="im-arquivo" accept=".xlsx" multiple>
+        <button class="btn-primary" id="im-processar" disabled>Processar arquivo(s)</button>
       </div>
       <div class="sub" id="im-status" style="margin-top:10px;"></div>
     </div>
@@ -1373,22 +1373,37 @@ function setupImportarPedidos(){
 
   btnProcessar.addEventListener('click', async () => {
     if (!fileInput.files.length) return;
-    status.textContent = 'Lendo arquivo…';
+    const files = [...fileInput.files];
+    status.textContent = `Lendo ${files.length} arquivo(s)…`;
     btnProcessar.disabled = true;
     try{
-      const buf = await fileInput.files[0].arrayBuffer();
-      const { header, rows } = await parseXlsxFirstSheet(buf);
       const obrigatorias = ['Pedido ID','Unidade Nome fantasia','Nome do Produto','Quantidade do Produto','Data do pedido'];
-      const faltando = obrigatorias.filter(c => !header.includes(c));
-      if (faltando.length){
-        status.textContent = 'Esse arquivo não parece estar no formato esperado — faltam as colunas: ' + faltando.join(', ');
+      let todasLinhas = [];
+      const arquivosOk = [];
+      const arquivosComErro = [];
+      for (const file of files){
+        const buf = await file.arrayBuffer();
+        const { header, rows } = await parseXlsxFirstSheet(buf);
+        const faltando = obrigatorias.filter(c => !header.includes(c));
+        if (faltando.length){
+          arquivosComErro.push(`${file.name} (faltam: ${faltando.join(', ')})`);
+          continue;
+        }
+        arquivosOk.push(file.name);
+        todasLinhas = todasLinhas.concat(rows);
+      }
+      if (!todasLinhas.length){
+        status.textContent = arquivosComErro.length
+          ? 'Nenhum arquivo no formato esperado — ' + arquivosComErro.join(' · ')
+          : 'Nenhuma linha encontrada no(s) arquivo(s) selecionado(s).';
         btnProcessar.disabled = false;
         return;
       }
-      processarLinhasImportadas(rows);
-      status.textContent = `Arquivo lido: ${rows.length} linha(s) de produto em ${new Set(rows.map(r=>r['Pedido ID'])).size} pedido(s).`;
+      processarLinhasImportadas(todasLinhas);
+      status.textContent = `${arquivosOk.length} arquivo(s) lido(s): ${todasLinhas.length} linha(s) de produto em ${new Set(todasLinhas.map(r=>r['Pedido ID'])).size} pedido(s).`
+        + (arquivosComErro.length ? ` ${arquivosComErro.length} arquivo(s) ignorado(s) por formato inválido: ${arquivosComErro.join(' · ')}` : '');
     }catch(err){
-      status.textContent = 'Não consegui ler esse arquivo: ' + err.message;
+      status.textContent = 'Não consegui ler esse(s) arquivo(s): ' + err.message;
     }
     btnProcessar.disabled = false;
   });
@@ -1452,6 +1467,7 @@ function processarLinhasImportadas(rows){
     if (qtd <= 0){ problemas.push({ tipo: 'Quantidade inválida', detalhe: r['Nome do Produto'] + ' (qtd ' + r['Quantidade do Produto'] + ')', pedido: r['Pedido ID'] }); return; }
 
     if (jaImportados.has(chave)){ nRepetidos++; return; }
+    jaImportados.add(chave); // evita duplicar se a mesma linha aparecer em mais de um arquivo do mesmo lote
 
     novos.push({
       unidade: unidade.nome, mes, produto: produto.produto,
