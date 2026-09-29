@@ -1311,13 +1311,19 @@ function resolverUnidadeJacareiAmbigua(unidadeBase, observacao){
 }
 
 /* Mesmo problema da ambiguidade de Jacareí (ver acima), agora com a Nave
-   Jabaquara: no sistema de pedidos das unidades ela é cadastrada sob o
-   mesmo nome fantasia da Nave Lapa (nome antigo dessa unidade: Lelupets).
-   Quem faz o pedido escreve à mão na Observação que é da Jabaquara/Lelupets
-   (ex.: "pedido da unidade Jabaquara" ou "Lelupets"). Quando a observação
-   não mencionar nenhuma das duas, assumimos Lapa (comportamento de sempre). */
+   Jabaquara: no sistema de pedidos das unidades ela às vezes é cadastrada
+   sob o mesmo nome fantasia da Nave Lapa (nome antigo dessa unidade:
+   Lelupets) — mas em pedidos reais (confirmado 29/09/2026, pedido 449) o
+   "Unidade Nome fantasia" pode vir só como "NAVE" (genérico, com CNPJ
+   placeholder), que não bate com nenhuma unidade cadastrada — nesse caso
+   findUnidadeByNomeFantasia já retorna null antes desta função rodar. Por
+   isso o gatilho aqui não exige mais que a base já tenha resolvido pra
+   Lapa: qualquer pedido (base = Lapa OU não reconhecida) cuja Observação
+   mencione Jabaquara/Lelupets é direcionado pra Nave Jabaquara. Quando a
+   observação não mencionar nenhuma das duas, mantém o que a base já
+   resolveu (Lapa, ou null se não reconhecida). */
 function resolverUnidadeJabaquaraAmbigua(unidadeBase, observacao){
-  if (!unidadeBase || unidadeBase.nome !== 'Nave Lapa') return unidadeBase;
+  if (unidadeBase && unidadeBase.nome !== 'Nave Lapa') return unidadeBase;
   const obs = stripAccents(observacao||'').toUpperCase();
   if (/JABAQUARA|LELUPETS/.test(obs)){
     const jabaquara = UNIDADES.find(u => u.nome === 'Nave Jabaquara');
@@ -1325,9 +1331,20 @@ function resolverUnidadeJabaquaraAmbigua(unidadeBase, observacao){
   }
   return unidadeBase;
 }
+/* O sistema de pedidos das unidades às vezes exporta o nome do produto sem
+   hífen/asterisco que o catálogo tem (ex.: pedido 449 da Jabaquara,
+   29/09/2026) — casamento é por igualdade exata (sem fuzzy match, mesmo
+   padrão do resto do painel), então essas diferenças de pontuação faziam
+   o produto cair em "não cadastrado". */
+const ALIASES_PRODUTO_BANHO = {
+  'SOFT CARE KTREAT CONDICIONADOR MICELAR 290ML': 'SOFT CARE K-TREAT CONDICIONADOR MICELAR 290ML',
+  'SOFT CARE KTREAT SHAMPOO MICELAR 500ML': 'SOFT CARE K-TREAT SHAMPOO MICELAR 500ML*',
+  'SOFT CARE SHAMPOO PRIMER 500ML': 'SOFT CARE SHAMPOO PRIMER 500ML*',
+};
 function findProdutoBanho(nome){
   const alvo = (nome||'').trim().toUpperCase();
-  return CATALOGO_BANHO.find(c => c.produto.trim().toUpperCase() === alvo) || null;
+  const alvoFinal = ALIASES_PRODUTO_BANHO[alvo] ? ALIASES_PRODUTO_BANHO[alvo].toUpperCase() : alvo;
+  return CATALOGO_BANHO.find(c => c.produto.trim().toUpperCase() === alvoFinal) || null;
 }
 
 function setupImportarPedidos(){
