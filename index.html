@@ -3244,6 +3244,10 @@ function renderHsTabela(){
 const ALIASES_SERVICO_RSP = {
   // Erro de digitação no export do sistema de agendamento (1 atendimento).
   'HIDRATACAO WILLIAN GALHARDE (RPOMOCIONAL)': 'HIDRATACAO WILLIAN GALHARDE (PROMOCIONAL)',
+  // Mesmo serviço, só sem o sufixo "(promocional)" — pedido do usuário
+  // (29/09/2026) pra juntar os dois. Sem isso os atendimentos "sem
+  // promocional" caiam em servicosSemRsp (sem produto associado).
+  'HIDRATACAO WILLIAN GALHARDE': 'HIDRATACAO WILLIAN GALHARDE (PROMOCIONAL)',
 };
 // Produtos cujo "esperado" (nº de banhos que o pacote/galão RENDE) varia
 // com o mix de porte dos atendimentos, em vez de ficar fixo — porte maior
@@ -3410,6 +3414,31 @@ const SERVICOS_SETOR_HOTEL = new Set([
   'Diária 24 horas',
   'Diária Avulsa',
 ]);
+// Merge de nomes de serviço pra exibição na tela Saída de serviços — pedido
+// do usuário (29/09/2026): "Hidratação Willian Galharde" e a variante
+// "(promocional)" são o mesmo serviço na prática (mesmo RSP/produto — já
+// tratadas como uma só no cálculo de consumo esperado via
+// ALIASES_SERVICO_RSP). Aqui é só pra não aparecerem como 2 linhas na tela.
+const SERVICOS_MESCLADOS_EXIBICAO = {
+  'Hidratação Willian Galharde': 'Hidratação Willian Galharde (promocional)',
+  'Hidratação Willian Galharde (rpomocional)': 'Hidratação Willian Galharde (promocional)',
+};
+function mesclarGruposServico(grupos){
+  const mapa = new Map();
+  grupos.forEach(g => {
+    const servico = SERVICOS_MESCLADOS_EXIBICAO[g.servico] || g.servico;
+    const chave = g.unidade + '\u0001' + servico + '\u0001' + g.mes;
+    if (!mapa.has(chave)){
+      mapa.set(chave, { ...g, servico, atendimentos: 0, atendimentosGrande: 0, atendimentosMedio: 0, valorTotal: 0 });
+    }
+    const acc = mapa.get(chave);
+    acc.atendimentos += g.atendimentos || 0;
+    acc.atendimentosGrande += g.atendimentosGrande || 0;
+    acc.atendimentosMedio += g.atendimentosMedio || 0;
+    acc.valorTotal = Math.round((acc.valorTotal + (g.valorTotal||0)) * 100) / 100;
+  });
+  return [...mapa.values()];
+}
 // Casos em que a última compra registrada claramente não reflete o ritmo
 // real de reposição (só uma compra isolada há vários meses, com uso muito
 // acima do que ela cobriria) — o usuário informa uma quantidade mensal
@@ -4042,8 +4071,10 @@ function setupSaidaServicos(){
 }
 
 function renderSaidaServicos(){
-  const dados = (pedidosState.historicoServicos || [])
-    .filter(g => !SERVICOS_SETOR_CLINICO.has(g.servico) && !SERVICOS_SETOR_HOTEL.has(g.servico));
+  const dados = mesclarGruposServico(
+    (pedidosState.historicoServicos || [])
+      .filter(g => !SERVICOS_SETOR_CLINICO.has(g.servico) && !SERVICOS_SETOR_HOTEL.has(g.servico))
+  );
   const fu = document.getElementById('ss-unidade').value;
   const fm = document.getElementById('ss-mes').value;
 
