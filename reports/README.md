@@ -40,6 +40,31 @@ só a lista de produtos exibidos é filtrada.
 Isso pode deixar alguma unidade sem nenhum produto pedido no mês — nesse
 caso a imagem "Detalhado" dela simplesmente não é gerada (fica menos de 12).
 
+## Regra de esperado por recorrência (decidido em 28-29/09/2026)
+
+O esperado normalmente usa a quantidade da **compra anterior** (o estoque
+que está sendo reposto). Mas testamos com dados reais (pedido do Tatuapé) e
+validamos com o usuário que, quando essa compra anterior foi **recente**
+(feita no mês passado ou no próprio mês de referência — só dá pra saber
+isso no momento do relatório, porque é aí que existe a distinção entre
+"pedido que acabou de ser feito" e "histórico"), o esperado passa a ser
+escalado pela quantidade do **pedido novo** em vez da compra anterior:
+assume-se que a unidade está pedindo a quantidade que reflete o consumo
+real percebido por ela, não a de meses atrás. Produtos comprados
+esporadicamente (gap maior que isso) mantêm a regra antiga, pra não inflar
+o esperado de um item que só volta a ser pedido de vez em quando.
+
+Produtos com recorrência mensal fixa já cadastrada no painel
+(`RECORRENCIA_COMPRA_MENSAL` no `index.html` — hoje só a escova de dente do
+Tatuapé) não são afetados por essa regra: já têm seu próprio mecanismo de
+recorrência e continuam como estavam.
+
+Só vale nesse relatório — o painel ao vivo (aba Análise de Consumo, selos
+de rendimento na aba Aprovações) não tem essa distinção "pedido novo x
+histórico", então continua só com a regra da compra anterior. Nas imagens
+"Detalhado", linha com **•** ao lado da quantidade = esperado calculado
+com a quantidade do pedido novo.
+
 ## Produtos ocultos nas imagens
 
 `SOFT TOUCH 500ML` e `EXPERT OIL REDUX 250G` ficam de fora das imagens (mas

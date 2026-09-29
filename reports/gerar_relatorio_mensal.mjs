@@ -7,13 +7,18 @@
 // último dia do mês anterior (ex.: pedidos de outubro, aprovados em 30/09,
 // contam como compra de outubro — ver mesSeguinte() no index.html). O
 // relatório mostra só os produtos que acabaram de ser repedidos pro mês de
-// referência — mas o esperado/feito exibido é da compra ANTERIOR a essa (o
-// estoque que está sendo reposto), medido contra os serviços mais recentes
-// já registrados (ex.: pedido de outubro comparado com os serviços de
-// setembro — a compra nova em si ainda não tem nenhum serviço registrado
-// pra comparar). Quem não foi repedido segue em uso e fica de fora; quem
-// foi pedido pela 1ª vez também (sem compra anterior pra comparar).
-// Pedido do usuário (25/09/2026).
+// referência — comparado contra os serviços mais recentes já registrados
+// (a compra nova em si ainda não tem nenhum serviço registrado pra
+// comparar). Quem não foi repedido segue em uso e fica de fora; quem foi
+// pedido pela 1ª vez também (sem compra anterior pra comparar). Pedido do
+// usuário (25/09/2026).
+//
+// O esperado normalmente é calculado em cima da compra ANTERIOR a essa (o
+// estoque que está sendo reposto) — mas, pra produtos sem recorrência
+// mensal fixa cadastrada cuja compra anterior foi recente (mês passado ou
+// o próprio mês de referência), passa a ser escalado pra quantidade do
+// PEDIDO NOVO que acabou de ser feito (regra combinada validada em
+// 28-29/09/2026, ver comentário perto de `qtdNovaPorProduto` abaixo).
 //
 // Uso: node gerar_relatorio_mensal.mjs [--out DIR] [--mes YYYY-MM]
 //   --out  diretório de saída (default: ./saida, relativo a este arquivo)
@@ -67,6 +72,14 @@ function status(l) {
   if (l.desvioPct < -20) return 'abaixo';
   if (l.desvioPct > 20) return 'acima';
   return 'dentro';
+}
+
+// Mesma conta do mesesEntre() no index.html (duplicada aqui porque esse
+// trecho roda em Node, depois que a página já fechou).
+function mesesEntre(mesInicio, mesFim) {
+  const [y1, m1] = mesInicio.split('-').map(Number);
+  const [y2, m2] = mesFim.split('-').map(Number);
+  return (y2 - y1) * 12 + (m2 - m1) + 1;
 }
 
 function serveStatic(root, port) {
@@ -141,14 +154,45 @@ async function main() {
         .map(l => l.unidade + '\u0001' + l.produto)
     );
 
+    // Quantidade do pedido que acabou de ser feito nesse ciclo, por
+    // unidade+produto (linhasComPedidoNovo já mescla quando há mais de um
+    // pedido aprovado pro mesmo produto no mesmo mês).
+    const qtdNovaPorProduto = new Map(
+      linhasComPedidoNovo
+        .filter(l => l.mesUltimaCompra === mes)
+        .map(l => [l.unidade + '\u0001' + l.produto, l.quantidadeUltimaCompra])
+    );
+
     // Linha final: dados da compra ANTERIOR (esperado/feito reais, contra
     // os serviços já registrados), só pros produtos que foram pedidos
     // nesse ciclo. Produtos não repedidos, ou pedidos pela 1ª vez (sem
     // compra anterior — não aparecem em linhasSemPedidoNovo), ficam de
     // fora (pedido do usuário, 25/09/2026).
-    const linhas = linhasSemPedidoNovo.filter(l =>
-      !OCULTOS_NA_IMAGEM.has(l.produto) && pedidosNesteMes.has(l.unidade + '\u0001' + l.produto)
-    );
+    //
+    // Regra combinada de recorrência (validada com o usuário em
+    // 28-29/09/2026, aplicada aqui em 29/09/2026): pra produtos SEM
+    // recorrência mensal fixa cadastrada (RECORRENCIA_COMPRA_MENSAL no
+    // index.html — quando l.recorrencia já é true, esse mecanismo próprio
+    // não é mexido), se a compra anterior foi recente (mês passado ou o
+    // próprio mês de referência — gap de até 2 "mesesEntre"), o esperado
+    // passa a ser escalado pra quantidade do PEDIDO NOVO em vez da compra
+    // anterior: assume-se que a unidade está pedindo a quantidade que
+    // reflete o consumo real percebido por ela. Produtos comprados
+    // esporadicamente (gap maior) mantêm a regra antiga — esperado baseado
+    // na compra anterior —, pra não inflar o esperado de item que só volta
+    // a ser pedido de vez em quando.
+    const linhas = linhasSemPedidoNovo
+      .filter(l => !OCULTOS_NA_IMAGEM.has(l.produto) && pedidosNesteMes.has(l.unidade + '\u0001' + l.produto))
+      .map(l => {
+        if (l.recorrencia || l.servicosEsperados == null || !l.quantidadeUltimaCompra) return l;
+        if (mesesEntre(l.mesUltimaCompra, mes) > 2) return l;
+        const qtdNova = qtdNovaPorProduto.get(l.unidade + '\u0001' + l.produto);
+        if (qtdNova == null) return l;
+        const servicosEsperados = l.servicosEsperados * (qtdNova / l.quantidadeUltimaCompra);
+        const desvio = l.servicosFeitos - servicosEsperados;
+        const desvioPct = servicosEsperados > 0.001 ? (desvio / servicosEsperados) * 100 : null;
+        return { ...l, quantidadeUltimaCompra: qtdNova, servicosEsperados, desvio, desvioPct, baseNova: true };
+      });
 
     // --- Imagem geral por unidade ---
     const porUnidade = new Map();
