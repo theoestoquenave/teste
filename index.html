@@ -4170,7 +4170,8 @@ function renderOrcamentosTable(){
       '<td><div class="row-actions">'+
         '<button class="btn btn-sm write-action" data-orc-action="abrir" data-orc="'+orc.id+'">Abrir</button>'+
         '<button class="btn btn-sm write-action" data-orc-action="duplicar" data-orc="'+orc.id+'">Duplicar</button>'+
-        '<button class="btn btn-sm" data-orc-action="imprimir" data-orc="'+orc.id+'">Imprimir</button>'+
+        '<button class="btn btn-sm" data-orc-action="imprimir" data-orc="'+orc.id+'">Exportar PDF</button>'+
+        '<button class="btn btn-sm" data-orc-action="exportar-excel" data-orc="'+orc.id+'">Exportar Excel</button>'+
         '<button class="btn btn-sm btn-ghost write-action" data-orc-action="excluir" data-orc="'+orc.id+'">Excluir</button>'+
       '</div></td>'+
     '</tr>';
@@ -4519,6 +4520,59 @@ function imprimirOrcamento(orc){
   window.print();
 }
 
+// Mesma lógica/colunas do PDF (imprimirOrcamento) acima, só que como planilha baixável —
+// pedido do usuário, 2026-10-01: poder exportar o orçamento em Excel além de PDF.
+function gerarOrcamentoCSV(orc){
+  var stockMap = computeStockMap(STATE);
+  var temEstimativa = false;
+  var linhas = [];
+  linhas.push(csvEscape(orc.nome));
+  linhas.push(csvEscape('Criado em')+';'+csvEscape(fmtDateFull(new Date(orc.criadoEm||Date.now()).toISOString().slice(0,10))));
+  if(orc.observacao) linhas.push(csvEscape('Observação')+';'+csvEscape(orc.observacao));
+  linhas.push('');
+  linhas.push(['Item','Categoria','Estoque atual','Saída média/mês','Qtd. a comprar','Custo unit. (R$)','Subtotal (R$)'].map(csvEscape).join(';'));
+  var total = 0;
+  (orc.itens||[]).forEach(function(l){
+    var it = getItem(l.itemId);
+    var custo = l.custoUnit!=null ? l.custoUnit : (it? it.custo : 0);
+    var subtotal = custo * (Number(l.quantidade)||0);
+    total += subtotal;
+    var estoqueAtual = it ? (stockMap[it.id]||0) : 0;
+    var saidaInfo = it ? saidaMediaMensal(it.id) : { media: null };
+    var estimado = saidaInfo.media!=null && saidaInfo.fonte==='correlacaoNome';
+    if(estimado) temEstimativa = true;
+    var saidaTxt = saidaInfo.media!=null ? (estimado?'≈':'')+csvNum(saidaInfo.media) : '';
+    linhas.push([
+      it? it.nome : '(item removido)', it? it.categoria : '', csvNum(estoqueAtual), saidaTxt,
+      csvNum(l.quantidade), csvNum(custo), csvNum(subtotal)
+    ].map(csvEscape).join(';'));
+  });
+  linhas.push('');
+  linhas.push(['Total estimado','','','','','',csvNum(total)].map(csvEscape).join(';'));
+  if(temEstimativa) linhas.push(csvEscape('≈ = saída média estimada por correlação de nome com serviços, não é baixa de item registrada.'));
+  linhas.push(csvEscape('Gerado em')+';'+csvEscape(fmtDateFull(todayISO())));
+  var bom = String.fromCharCode(0xFEFF);
+  return bom + linhas.join('\r\n');
+}
+
+async function exportarOrcamentoExcel(orc){
+  var api = await getDownloads();
+  if(!api){ toast('Download de planilha não está disponível nesta tela.'); return; }
+  var csv = gerarOrcamentoCSV(orc);
+  var slug = normStr(orc.nome).replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'orcamento';
+  var filename = 'orcamento-'+slug+'-'+todayISO()+'.csv';
+  try{
+    await api.save({ filename: filename, data: csv });
+    toast('Planilha do orçamento gerada.');
+  }catch(err){
+    var code = err && err.code;
+    if(code==='declined'){ /* usuário cancelou o download */ }
+    else if(code==='extension_not_enabled') toast('Esse tipo de arquivo não está habilitado para download aqui no momento.');
+    else if(code==='rate_limited') toast('Aguarde um instante e tente novamente.');
+    else toast('Não foi possível gerar o download agora. Tente de novo em instantes.');
+  }
+}
+
 /* ============================================================
    EVENT WIRING
    ============================================================ */
@@ -4551,6 +4605,7 @@ function wireStaticEvents(){
     var action = btn.dataset.orcAction;
     if(action==='abrir'){ openOrcamentoModal(orc.id); }
     else if(action==='imprimir'){ imprimirOrcamento(orc); }
+    else if(action==='exportar-excel'){ await exportarOrcamentoExcel(orc); }
     else if(action==='duplicar'){
       STATE.orcamentos.push({
         id: uid('orc'), nome: orc.nome+' (cópia)', observacao: orc.observacao,
