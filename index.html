@@ -2021,6 +2021,7 @@ function rowHtml(r){
       '<button class="btn btn-sm btn-icon write-action" title="Ajustar contagem" aria-label="Ajustar contagem" data-action="ajustar" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>'+
       '<button class="btn btn-sm btn-icon write-action" title="Registrar compra" aria-label="Registrar compra" data-action="compra-item" data-item="'+it.id+'">+</button>'+
       '<button class="btn btn-sm btn-icon write-action" title="Registrar saída" aria-label="Registrar saída" data-action="saida-item" data-item="'+it.id+'">−</button>'+
+      '<button class="btn btn-sm btn-icon write-action" title="Adicionar ao orçamento" aria-label="Adicionar ao orçamento" data-action="orcamento-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>'+
       '<button class="btn btn-sm btn-icon write-action" title="Excluir produto" aria-label="Excluir produto" data-action="excluir-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>'+
     '</div></td>'+
   '</tr>';
@@ -4413,6 +4414,68 @@ function openOrcamentoModal(orcamentoId){
   });
 }
 
+function openAdicionarOrcamentoModal(itemId){
+  var it = getItem(itemId);
+  if(!it) return;
+  var stockMap = computeStockMap(STATE);
+  var atual = stockMap[itemId]||0;
+  var minimo = minimoFor(itemId);
+  var sugestaoQtd = minimo>atual ? Math.ceil(minimo-atual) : 1;
+  var orcamentos = (STATE.orcamentos||[]).slice().sort(function(a,b){
+    return (b.atualizadoEm||b.criadoEm||0)-(a.atualizadoEm||a.criadoEm||0);
+  });
+  var nomeSugerido = 'Lista de compras — '+MESES_NOME[new Date().getMonth()]+'/'+new Date().getFullYear();
+  var optsHtml = orcamentos.map(function(o){ return '<option value="'+o.id+'">'+escapeHtml(o.nome)+'</option>'; }).join('')+
+    '<option value="__novo__">+ Novo orçamento</option>';
+  var defaultVal = orcamentos.length ? orcamentos[0].id : '__novo__';
+  var body = ''+
+    '<div class="banner info">'+escapeHtml(it.nome)+' — em estoque: '+fmtNum(atual,2)+(minimo>0? ' · mínimo: '+fmtNum(minimo,2) : '')+'</div>'+
+    '<div class="field"><label>Adicionar a</label><select id="aoorc-select">'+optsHtml+'</select></div>'+
+    '<div class="field" id="aoorc-nome-wrap"><label>Nome do novo orçamento</label><input type="text" id="aoorc-nome" value="'+escapeHtml(nomeSugerido)+'"></div>'+
+    '<div class="field-row">'+
+      '<div class="field"><label>Quantidade a comprar</label><input type="number" min="0" step="0.01" id="aoorc-qty" value="'+sugestaoQtd+'"></div>'+
+      '<div class="field"><label>Custo unit.</label><input type="number" min="0" step="0.01" id="aoorc-custo" value="'+it.custo+'"></div>'+
+    '</div>';
+  var foot = '<button class="btn btn-ghost" id="aoorc-cancel">Cancelar</button><button class="btn btn-primary write-action" id="aoorc-save">Adicionar ao orçamento</button>';
+  openModal('Adicionar ao orçamento', body, foot);
+
+  var selectEl = document.getElementById('aoorc-select');
+  selectEl.value = defaultVal;
+  var nomeWrap = document.getElementById('aoorc-nome-wrap');
+  function syncNomeVisibility(){ nomeWrap.style.display = selectEl.value==='__novo__' ? '' : 'none'; }
+  syncNomeVisibility();
+  selectEl.addEventListener('change', syncNomeVisibility);
+
+  document.getElementById('aoorc-cancel').addEventListener('click', closeModal);
+  document.getElementById('aoorc-save').addEventListener('click', async function(){
+    var qty = parseFloat(document.getElementById('aoorc-qty').value);
+    if(!(qty>0)){ toast('Informe uma quantidade válida.'); return; }
+    var custo = parseFloat(document.getElementById('aoorc-custo').value);
+    if(isNaN(custo)) custo = it.custo;
+    STATE.orcamentos = STATE.orcamentos || [];
+    var destino;
+    if(selectEl.value==='__novo__'){
+      var nome = document.getElementById('aoorc-nome').value.trim();
+      if(!nome){ toast('Dê um nome ao orçamento antes de salvar.'); return; }
+      destino = { id: uid('orc'), nome: nome, observacao:'', itens: [], criadoEm: Date.now() };
+      STATE.orcamentos.push(destino);
+    }else{
+      destino = STATE.orcamentos.find(function(o){ return o.id===selectEl.value; });
+      if(!destino){ toast('Orçamento não encontrado.'); return; }
+    }
+    var linhaExistente = destino.itens.find(function(l){ return l.itemId===itemId; });
+    if(linhaExistente){
+      linhaExistente.quantidade = (Number(linhaExistente.quantidade)||0) + qty;
+      linhaExistente.custoUnit = custo;
+    }else{
+      destino.itens.push({ itemId: itemId, quantidade: qty, custoUnit: custo });
+    }
+    destino.atualizadoEm = Date.now();
+    closeModal(); renderOrcamentosTable(); await persist();
+    toast('Item adicionado ao orçamento "'+destino.nome+'".');
+  });
+}
+
 function imprimirOrcamento(orc){
   // Estoque atual é calculado na hora de imprimir (não é um dado salvo no orçamento) — pedido do
   // usuário, 2026-08-27: mostrar quanto já tem em estoque de cada item, para justificar o pedido
@@ -4524,6 +4587,7 @@ function wireStaticEvents(){
     if(btn.dataset.action==='ajustar') openAjusteModal(itemId);
     else if(btn.dataset.action==='compra-item') openCompraModal(itemId);
     else if(btn.dataset.action==='saida-item') openSaidaModal(itemId);
+    else if(btn.dataset.action==='orcamento-item') openAdicionarOrcamentoModal(itemId);
     else if(btn.dataset.action==='historico') openHistoricoModal(itemId);
     else if(btn.dataset.action==='excluir-item') openExcluirProdutoModal(itemId);
   });
