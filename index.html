@@ -3802,11 +3802,14 @@ function calcularComparativoUltimaCompra(){
     // 1 em setembro), a diferença (1) é tratada como sobra que ainda não
     // foi usada, e entra somada na quantidade da compra SEGUINTE (a última,
     // não a que teve a queda) — sem mudar a janela de "serviços feitos",
-    // que continua contando só desde a última compra. Produtos com
+    // que continua contando só desde a última compra. Só vale se essas duas
+    // compras (antepenúltima e penúltima) foram em meses consecutivos; se
+    // houve um intervalo maior entre elas, a sobra é ignorada. Produtos com
     // RECORRENCIA_COMPRA_MENSAL própria (ex.: escova do Tatuapé) não
     // entram nessa regra — já têm seu mecanismo de suavização.
     let sobraHerdada = 0;
-    if (!recorrenciaMensalFlag && info.penultima && info.antepenultima && info.penultima.quantidade < info.antepenultima.quantidade){
+    if (!recorrenciaMensalFlag && info.penultima && info.antepenultima && info.penultima.quantidade < info.antepenultima.quantidade
+        && mesesEntre(info.antepenultima.mes, info.penultima.mes) === 2){
       sobraHerdada = info.antepenultima.quantidade - info.penultima.quantidade;
     }
     const baseQuantidade = info.ultima.quantidade + sobraHerdada;
