@@ -1626,7 +1626,7 @@ function rendimentoBadgeHtml(mapaRend, unidade, produto){
   const cls = l.desvioPct < -20 ? 'pendente' : 'aprovado';
   const label = l.desvioPct < -20 ? 'abaixo do esperado' : (l.desvioPct > 20 ? 'acima do esperado' : 'dentro do esperado');
   const pct = `${l.desvioPct>0?'+':''}${fmtNum(l.desvioPct,0)}%`;
-  const detalhe = `Última compra em ${l.mesUltimaCompra}: ${fmtNum(l.quantidadeUltimaCompra,0)} un. deveria(m) render ${fmtNum(l.servicosEsperados,0)} atendimento(s); ${fmtNum(l.servicosFeitos,0)} já feito(s) desde então.${l.estimado?' (rendimento estimado)':''}`;
+  const detalhe = `Última compra em ${l.mesUltimaCompra}: ${fmtNum(l.quantidadeUltimaCompra,0)} un. deveria(m) render ${fmtNum(l.servicosEsperados,0)} atendimento(s); ${fmtNum(l.servicosFeitos,0)} já feito(s) desde então.${l.estimado?' (rendimento estimado)':''}${l.baseDuasCompras?' (soma as 2 últimas compras — a anterior foi recente, pode ainda ter sobra rendendo)':''}`;
   return `<span class="chip ${cls}" title="${escapeHtml(detalhe)}">${label} (${pct})</span>`;
 }
 
@@ -3719,14 +3719,27 @@ function calcularComparativoUltimaCompra(){
     return est ? { valor: est.rendimentoNumero, estimado: true } : null;
   }
 
-  const ultimaCompraPorUnidadeProduto = new Map();
+  // Guarda TODAS as compras por unidade+produto (não só a última), pra dar
+  // pra olhar a penúltima também — ver regra de "duas últimas compras"
+  // logo abaixo.
+  const comprasPorUnidadeProduto = new Map();
   comprasReaisMescladas().forEach(hc => {
     if (!hc.unidade || !hc.produtoCatalogo || !hc.quantidade) return;
     if (PRODUTOS_EXCLUIDOS_COMPARATIVO.has(hc.produtoCatalogo)) return;
     const k = hc.unidade + '\u0001' + hc.produtoCatalogo;
-    const atual = ultimaCompraPorUnidadeProduto.get(k);
-    if (!atual || hc.mes > atual.mes) ultimaCompraPorUnidadeProduto.set(k, { mes: hc.mes, quantidade: hc.quantidade });
-    else if (hc.mes === atual.mes) atual.quantidade += hc.quantidade;
+    if (!comprasPorUnidadeProduto.has(k)) comprasPorUnidadeProduto.set(k, new Map());
+    const porMes = comprasPorUnidadeProduto.get(k);
+    porMes.set(hc.mes, (porMes.get(hc.mes)||0) + hc.quantidade);
+  });
+  const ultimaCompraPorUnidadeProduto = new Map();
+  comprasPorUnidadeProduto.forEach((porMes, k) => {
+    const meses = [...porMes.keys()].sort();
+    const mesUltima = meses[meses.length-1];
+    const ultima = { mes: mesUltima, quantidade: porMes.get(mesUltima) };
+    const penultima = meses.length >= 2
+      ? { mes: meses[meses.length-2], quantidade: porMes.get(meses[meses.length-2]) }
+      : null;
+    ultimaCompraPorUnidadeProduto.set(k, { ultima, penultima });
   });
 
   const pesosPorProduto = new Map();
@@ -3779,6 +3792,25 @@ function calcularComparativoUltimaCompra(){
     // nunca sai de zero e o desvio vira sempre -100%, o que não é real.
     const temServicoAssociado = pesosPorProduto.has(produto);
 
+    const recorrenciaMensalFlag = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto] != null;
+    // Regra de "duas últimas compras" (validada com o usuário em
+    // 06/10/2026): quando a penúltima compra foi recente (mês passado ou o
+    // próprio mês da última — gap de até 2 "mesesEntre"), soma as duas na
+    // base do esperado, e mede o feito desde a penúltima — pega a sobra que
+    // ainda está rendendo de uma compra pra outra, em vez de descartar como
+    // se cada compra zerasse o estoque anterior. Gap grande (ou só 1 compra
+    // registrada) mantém a regra de sempre: só a última compra. Produtos
+    // com RECORRENCIA_COMPRA_MENSAL própria (ex.: escova do Tatuapé) já têm
+    // seu próprio mecanismo de suavização — não mexe nesses.
+    let baseQuantidade = info.ultima.quantidade;
+    let mesBase = info.ultima.mes;
+    let baseDuasCompras = false;
+    if (info.penultima && !recorrenciaMensalFlag && mesesEntre(info.penultima.mes, info.ultima.mes) <= 2){
+      baseQuantidade = info.penultima.quantidade + info.ultima.quantidade;
+      mesBase = info.penultima.mes;
+      baseDuasCompras = true;
+    }
+
     let servicosFeitos = 0;
     let servicosEsperados = null;
     let estimado = false;
@@ -3791,33 +3823,33 @@ function calcularComparativoUltimaCompra(){
       const dPorUnidade = dinamicoPorProdutoUnidadeMes.get(produto);
       const dPorMes = dPorUnidade ? dPorUnidade.get(unidade) : null;
       let atendReal = 0, consumidoReal = 0;
-      if (dPorMes) dPorMes.forEach((acc,m) => { if (m >= info.mes){ atendReal += acc.atendimentos; consumidoReal += acc.consumido; } });
+      if (dPorMes) dPorMes.forEach((acc,m) => { if (m >= mesBase){ atendReal += acc.atendimentos; consumidoReal += acc.consumido; } });
       servicosFeitos = atendReal;
-      servicosEsperados = consumidoReal > 0.001 ? (info.quantidade * cfgDinamico.apresentacao * atendReal / consumidoReal) : null;
+      servicosEsperados = consumidoReal > 0.001 ? (baseQuantidade * cfgDinamico.apresentacao * atendReal / consumidoReal) : null;
     } else {
       const rendInfo = temServicoAssociado ? rendimentoDoProduto(produto) : null;
       const porUnidade = atendPorProdutoUnidadeMes.get(produto);
       const porMes = porUnidade ? porUnidade.get(unidade) : null;
-      if (porMes) porMes.forEach((v,m) => { if (m >= info.mes) servicosFeitos += v; });
+      if (porMes) porMes.forEach((v,m) => { if (m >= mesBase) servicosFeitos += v; });
 
       const recorrenciaMensal = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto];
       const quantidadeEfetiva = recorrenciaMensal != null && ultimoMesDados
-        ? recorrenciaMensal * mesesEntre(info.mes, ultimoMesDados)
-        : info.quantidade;
+        ? recorrenciaMensal * mesesEntre(mesBase, ultimoMesDados)
+        : baseQuantidade;
 
       servicosEsperados = rendInfo ? quantidadeEfetiva * rendInfo.valor : null;
       estimado = rendInfo ? rendInfo.estimado : false;
     }
 
-    const recorrenciaMensalFlag = RECORRENCIA_COMPRA_MENSAL[unidade + '\u0001' + produto] != null;
     const desvio = servicosEsperados != null ? servicosFeitos - servicosEsperados : null;
     const desvioPct = servicosEsperados > 0.001 ? (desvio/servicosEsperados)*100 : null;
 
     linhas.push({
-      unidade, produto, mesUltimaCompra: info.mes, quantidadeUltimaCompra: info.quantidade,
+      unidade, produto, mesUltimaCompra: info.ultima.mes, quantidadeUltimaCompra: baseQuantidade,
       servicosEsperados, servicosFeitos, desvio, desvioPct,
       estimado,
       recorrencia: recorrenciaMensalFlag,
+      baseDuasCompras,
     });
   });
 
@@ -3871,7 +3903,7 @@ function renderDcTabela(){
     const st = dcStatusDesvio(l);
     return `<tr>
       <td>${escapeHtml(l.unidade)}</td>
-      <td>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras (produto sem rendimento fixo na planilha original).">estimado</span>' : ''}${l.recorrencia ? ' <span class="chip obs" style="padding:1px 6px;" title="Compra tratada como recorrente mensal (ajustado manualmente) em vez de único lançamento — a planilha provavelmente não capturou todas as compras dessa unidade.">recorrência ajustada</span>' : ''}</td>
+      <td>${escapeHtml(l.produto)}${l.estimado ? ' <span class="chip obs" style="padding:1px 6px;" title="Rendimento estimado a partir do intervalo entre compras (produto sem rendimento fixo na planilha original).">estimado</span>' : ''}${l.recorrencia ? ' <span class="chip obs" style="padding:1px 6px;" title="Compra tratada como recorrente mensal (ajustado manualmente) em vez de único lançamento — a planilha provavelmente não capturou todas as compras dessa unidade.">recorrência ajustada</span>' : ''}${l.baseDuasCompras ? ' <span class="chip obs" style="padding:1px 6px;" title="Compra anterior foi recente (mês passado ou este mês) — esperado soma as 2 últimas compras, já que a de antes pode ainda ter sobra rendendo.">2 compras somadas</span>' : ''}</td>
       <td class="mono">${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</td>
       <td class="num mono">${l.servicosEsperados==null ? '—' : fmtNum(l.servicosEsperados, 0)}</td>
       <td class="num mono">${fmtNum(l.servicosFeitos, 0)}</td>
