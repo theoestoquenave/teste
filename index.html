@@ -2903,14 +2903,24 @@ function chaveHistoricoCompra(item){
 /* --- Histórico de serviços realizados ---
    Formato observado: export do sistema de agendamento, um arquivo por
    unidade (aceita vários arquivos de uma vez), colunas LOJA, SERVICO, DATA,
-   VALOR (entre outras que não guardamos — cliente/pet/telefone/agendamento
+   VALOR, AGENDAMENTO (entre outras que não guardamos — cliente/pet/telefone
    não são necessários pra análise de consumo). Guardamos JÁ AGREGADO por
    unidade+serviço+mês (contagem de atendimentos + soma do valor), não uma
    linha por atendimento: um export típico tem dezenas de milhares de
    linhas (uma unidade sozinha passou de 10 mil), o que viraria alguns MB de
    JSON no estado do painel — sem necessidade, já que o cálculo de consumo
    esperado só precisa de "quantos desse serviço, nessa unidade, nesse mês",
-   não do atendimento individual. */
+   não do atendimento individual.
+
+   Pedido do usuário (06/10/2026): rastrear o código de AGENDAMENTO de cada
+   atendimento (compacto: [codigo, porteFlag, valor] por grupo) pra permitir
+   reconciliação exata quando o export vier filtrado por data (ex.: só a
+   última semana) — sem isso, cada reimportação parcial exigia conferência
+   manual grupo a grupo pra não duplicar nem perder atendimento (ver
+   mesclarGrupoHistorico abaixo). AGENDAMENTO não é único por linha sozinho
+   (um agendamento pode ter vários serviços — ex.: banho + tosa no mesmo
+   atendimento), mas AGENDAMENTO+SERVIÇO (já garantido pelo agrupamento por
+   "chave" aqui) é, na prática, uma identidade estável por atendimento. */
 const PORTES_GRANDES = new Set(['GRANDE', 'GIGANTE']);
 function parseHistoricoServicosRows(rows){
   if (!rows.length) return [];
@@ -2921,8 +2931,10 @@ function parseHistoricoServicosRows(rows){
     data: header.indexOf('DATA'),
     valor: header.indexOf('VALOR'),
     porte: header.indexOf('PORTE'),
+    agendamento: header.indexOf('AGENDAMENTO'),
   };
   if (idx.loja < 0 || idx.servico < 0 || idx.data < 0) return [];
+  const temAgendamento = idx.agendamento >= 0;
   const grupos = new Map();
   for (let r = 1; r < rows.length; r++){
     const row = rows[r];
@@ -2935,36 +2947,73 @@ function parseHistoricoServicosRows(rows){
     const mes = m[3] + '-' + m[2].padStart(2,'0');
     const valorTxt = idx.valor >= 0 ? (row[idx.valor]||'').toString().trim() : '';
     const valor = valorTxt ? Number(valorTxt.replace(/\./g,'').replace(',','.')) : 0;
+    const valorFinal = Number.isFinite(valor) ? Math.round(valor*100)/100 : 0;
     const porteTxt = idx.porte >= 0 ? normalizarNomeParaMatch(row[idx.porte]) : '';
+    const porteFlag = PORTES_GRANDES.has(porteTxt) ? 2 : (porteTxt === 'MEDIO' ? 1 : 0);
     const chave = unidadeOriginal + '|' + servico + '|' + mes;
     if (!grupos.has(chave)){
-      grupos.set(chave, { unidade: sugerirUnidadeHistorico(unidadeOriginal), unidadeOriginal, servico, mes, atendimentos: 0, atendimentosGrande: 0, atendimentosMedio: 0, valorTotal: 0 });
+      grupos.set(chave, { unidade: sugerirUnidadeHistorico(unidadeOriginal), unidadeOriginal, servico, mes, atendimentos: 0, atendimentosGrande: 0, atendimentosMedio: 0, valorTotal: 0, agendamentos: temAgendamento ? [] : null });
     }
     const g = grupos.get(chave);
     g.atendimentos++;
-    if (PORTES_GRANDES.has(porteTxt)) g.atendimentosGrande++;
-    else if (porteTxt === 'MEDIO') g.atendimentosMedio++;
-    if (Number.isFinite(valor)) g.valorTotal += valor;
+    if (porteFlag === 2) g.atendimentosGrande++;
+    else if (porteFlag === 1) g.atendimentosMedio++;
+    g.valorTotal += valorFinal;
+    if (temAgendamento){
+      const codigoTxt = (row[idx.agendamento]||'').toString().replace(/[^0-9]/g,'');
+      if (codigoTxt) g.agendamentos.push([Number(codigoTxt), porteFlag, valorFinal]);
+    }
   }
   return [...grupos.values()].map(g => ({ ...g, valorTotal: Math.round(g.valorTotal*100)/100 }));
 }
-// Chave do grupo unidade+serviço+mês. Ao reimportar um export atualizado da
-// mesma unidade, o grupo é SUBSTITUÍDO (não somado) — o novo arquivo é a
-// contagem completa e correta daquele mês, não um incremento.
+// Chave do grupo unidade+serviço+mês.
 function chaveHistoricoServico(item){
   return [item.unidadeOriginal, item.servico, item.mes].join('|').toUpperCase();
 }
-// Cada grupo (unidade+serviço+mês) importado SUBSTITUI o já salvo — seguro
-// pra reimportar o mesmo período (o arquivo novo é sempre o recálculo
-// completo daquele mês), mas um arquivo PARCIAL (só parte do mês) sobrescreve
-// silenciosamente uma contagem completa por uma incompleta, perdendo
-// atendimento. Detecta isso comparando com o que já está salvo (pedido do
-// usuário, 29/09/2026).
+// Mescla um grupo novo (do arquivo importado) com o que já está salvo:
+// - Grupo novo (não existia): entra direto.
+// - Grupo já rastreado (tem `agendamentos` de uma importação anterior já
+//   nesse novo formato) E o arquivo novo também tem AGENDAMENTO: reconcilia
+//   por código — soma só os atendimentos cujo AGENDAMENTO ainda não tinha
+//   sido contado. Isso é seguro mesmo pra export filtrado por data, mesmo
+//   re-selecionando o mesmo arquivo, mesmo com sobreposição parcial: nunca
+//   duplica, nunca perde (os `vistos` só crescem).
+// - Grupo "legado" (salvo antes desse recurso existir, sem `agendamentos`)
+//   ou arquivo sem coluna AGENDAMENTO: não dá pra reconciliar com certeza
+//   — mantém o comportamento antigo (substitui a contagem inteira pela do
+//   arquivo novo), mas já passa a registrar os agendamentos desse arquivo
+//   pra próxima reimportação já conseguir reconciliar de verdade.
+function mesclarGrupoHistorico(existente, novo){
+  if (!existente) return novo;
+  const podeReconciliar = Array.isArray(existente.agendamentos) && Array.isArray(novo.agendamentos);
+  if (!podeReconciliar) return novo;
+  const vistos = new Set(existente.agendamentos.map(a => a[0]));
+  const novosAg = novo.agendamentos.filter(a => !vistos.has(a[0]));
+  if (!novosAg.length) return existente;
+  const agendamentos = existente.agendamentos.concat(novosAg);
+  const atendimentos = agendamentos.length;
+  const atendimentosGrande = agendamentos.reduce((s,a) => s + (a[1]===2?1:0), 0);
+  const atendimentosMedio = agendamentos.reduce((s,a) => s + (a[1]===1?1:0), 0);
+  const valorTotal = Math.round(agendamentos.reduce((s,a) => s+a[2], 0)*100)/100;
+  return { ...existente, atendimentos, atendimentosGrande, atendimentosMedio, valorTotal, agendamentos };
+}
+// Compatibilidade: um grupo é "reconciliável com certeza" quando ele e o
+// candidato a mesclar nele ambos têm `agendamentos` rastreados — nesse
+// caso mesclarGrupoHistorico nunca perde atendimento (só soma o que é
+// genuinely novo), então não precisa de aviso. Quando não dá pra
+// reconciliar (grupo "legado" sem rastreio, ou arquivo sem coluna
+// AGENDAMENTO), o caminho é substituir a contagem inteira — aí sim um
+// arquivo PARCIAL (só parte do mês) pode sobrescrever silenciosamente uma
+// contagem completa por uma incompleta, perdendo atendimento. Detecta isso
+// comparando com o que já está salvo (pedido do usuário, 29/09/2026).
 function gruposComQueda(itensNovos){
   const existentes = new Map((pedidosState.historicoServicos||[]).map(i => [chaveHistoricoServico(i), i]));
   return itensNovos.map(i => {
     const ex = existentes.get(chaveHistoricoServico(i));
-    return ex && i.atendimentos < ex.atendimentos ? { ...i, atendimentosAntes: ex.atendimentos } : null;
+    if (!ex) return null;
+    const podeReconciliar = Array.isArray(ex.agendamentos) && Array.isArray(i.agendamentos);
+    if (podeReconciliar) return null;
+    return i.atendimentos < ex.atendimentos ? { ...i, atendimentosAntes: ex.atendimentos } : null;
   }).filter(Boolean);
 }
 
@@ -4006,17 +4055,18 @@ function setupConsumo(){
       if (!todosGrupos.length){ toast('Não encontrei nenhum atendimento nos arquivo(s) selecionados — confira o formato (colunas LOJA, SERVICO, DATA).', 'error'); return; }
       // Combina por unidade+serviço+mês. Se a MESMA combinação aparecer em
       // mais de um arquivo do lote (ex.: o mesmo arquivo selecionado duas
-      // vezes sem querer, ou dois exports sobrepostos), mantém só a última
-      // — somar dobraria a contagem, já que cada arquivo é sempre a
-      // recontagem completa daquele mês, não um incremento (mesma lógica do
-      // "reimportar substitui" usada no resto desse fluxo). Colisão vira
-      // aviso pro usuário conferir se não selecionou o mesmo arquivo 2x.
+      // vezes sem querer, ou dois exports sobrepostos), usa a mesma
+      // reconciliação por AGENDAMENTO de mesclarGrupoHistorico — soma só o
+      // que é genuinamente novo entre os arquivos do lote, nunca duplica.
+      // Colisão ainda vira aviso informativo, pro usuário conferir se não
+      // selecionou o mesmo arquivo 2x.
       const combinados = new Map();
       const colisoes = [];
       todosGrupos.forEach(g => {
         const chave = chaveHistoricoServico(g);
-        if (combinados.has(chave)) colisoes.push({ unidade: g.unidade || g.unidadeOriginal, servico: g.servico, mes: g.mes });
-        combinados.set(chave, g);
+        const existente = combinados.get(chave);
+        if (existente) colisoes.push({ unidade: g.unidade || g.unidadeOriginal, servico: g.servico, mes: g.mes });
+        combinados.set(chave, mesclarGrupoHistorico(existente, g));
       });
       const itens = [...combinados.values()];
       const totalAtendimentos = itens.reduce((s,g) => s + g.atendimentos, 0);
@@ -4046,7 +4096,7 @@ function setupConsumo(){
     const atualizados = novosItens.length - novos;
     const ok = await commit(state => {
       const mapa = new Map((state.historicoServicos||[]).map(i => [chaveHistoricoServico(i), i]));
-      novosItens.forEach(i => mapa.set(chaveHistoricoServico(i), i));
+      novosItens.forEach(i => mapa.set(chaveHistoricoServico(i), mesclarGrupoHistorico(mapa.get(chaveHistoricoServico(i)), i)));
       state.historicoServicos = [...mapa.values()];
       return state;
     }, `Histórico de serviços atualizado: ${novos} grupo(s) novo(s)${atualizados ? `, ${atualizados} atualizado(s)` : ''} (unidade+serviço+mês).`);
