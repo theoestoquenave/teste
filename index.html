@@ -846,7 +846,7 @@
       <h2 style="margin-top:0;">Comparativo entre unidades — <span id="rs-comparativo-mes"></span></h2>
       <p class="sub" id="rs-comparativo-sub">Ranking das unidades no mês selecionado, com variação frente ao mês anterior.</p>
       <div class="tablewrap"><table id="rs-tabela-comparativo">
-        <thead><tr><th>Unidade</th><th class="num">Atendimentos</th><th class="num">Var.</th><th class="num">Valor</th><th class="num">Ticket médio</th></tr></thead>
+        <thead><tr><th>Unidade</th><th class="num">Atendimentos</th><th class="num">Var.</th><th class="num">Valor</th><th class="num" title="Valor total ÷ número de banhos (não ÷ todos os atendimentos)">Ticket médio</th></tr></thead>
         <tbody></tbody>
       </table></div>
     </div>
@@ -3580,6 +3580,12 @@ const SERVICOS_SETOR_HOTEL = new Set([
 // Merge de nomes de serviço pra exibição na tela Saída de serviços — pedido
 // do usuário (29/09/2026): "Hidratação Willian Galharde" e a variante
 // "(promocional)" são o mesmo serviço na prática (mesmo RSP/produto — já
+// Serviços que contam como "um banho" pra calcular ticket médio no
+// Relatório de Serviços (mesma lógica do Painel de Indicadores de
+// referência: Produzido do mês ÷ número de banhos, não ÷ atendimentos
+// totais — pedido do usuário, 13/10/2026). Não inclui adicionais
+// "a seco" nem itens "sem banho".
+const SERVICOS_BANHO = new Set(['Banho', 'Banho Gato', 'Banho Fidelidade Cortesia', 'Banho Xtreme']);
 // tratadas como uma só no cálculo de consumo esperado via
 // ALIASES_SERVICO_RSP). Aqui é só pra não aparecerem como 2 linhas na tela.
 const SERVICOS_MESCLADOS_EXIBICAO = {
@@ -4389,13 +4395,15 @@ function renderRelatorioServicos(){
 
   const porMes = new Map();
   escopo.forEach(g => {
-    if (!porMes.has(g.mes)) porMes.set(g.mes, { atendimentos: 0, valor: 0 });
+    if (!porMes.has(g.mes)) porMes.set(g.mes, { atendimentos: 0, valor: 0, banho: 0 });
     const acc = porMes.get(g.mes);
     acc.atendimentos += g.atendimentos;
     acc.valor += g.valorTotal || 0;
+    if (SERVICOS_BANHO.has(g.servico)) acc.banho += g.atendimentos;
   });
   const serieAtend = meses.map(m => (porMes.get(m)||{}).atendimentos || 0);
   const serieValor = meses.map(m => (porMes.get(m)||{}).valor || 0);
+  const serieBanho = meses.map(m => (porMes.get(m)||{}).banho || 0);
 
   const idxRef = meses.indexOf(mesRef);
   const idxAnt = idxRef > 0 ? idxRef - 1 : null;
@@ -4415,16 +4423,23 @@ function renderRelatorioServicos(){
 
   let atendAnt = idxAnt != null ? serieAtend[idxAnt] : null;
   let valorAnt = idxAnt != null ? serieValor[idxAnt] : null;
+  let banhoAnt = idxAnt != null ? serieBanho[idxAnt] : null;
   let antSemDado = 0;
   if (comparandoPorDia){
-    const soma = somaGruposAteDia(escopo.filter(g => g.mes === mesAnt), diaHoje);
+    const gruposMesAnt = escopo.filter(g => g.mes === mesAnt);
+    const soma = somaGruposAteDia(gruposMesAnt, diaHoje);
     atendAnt = soma.atendimentos;
     valorAnt = soma.valor;
     antSemDado = soma.semDado;
+    banhoAnt = somaGruposAteDia(gruposMesAnt.filter(g => SERVICOS_BANHO.has(g.servico)), diaHoje).atendimentos;
   }
 
-  const ticketRef = atendRef > 0 ? valorRef / atendRef : 0;
-  const ticketAnt = atendAnt ? valorAnt / atendAnt : null;
+  const banhoRef = serieBanho[idxRef] || 0;
+  // Ticket médio segue a mesma lógica do Painel de Indicadores de
+  // referência: valor total (todos os serviços) ÷ só os banhos, não ÷
+  // todos os atendimentos (pedido do usuário, 13/10/2026).
+  const ticketRef = banhoRef > 0 ? valorRef / banhoRef : 0;
+  const ticketAnt = banhoAnt ? valorAnt / banhoAnt : null;
   const servicosDistintosRef = new Set(escopo.filter(g=>g.mes===mesRef).map(g=>g.servico)).size;
   const unidadesAtivasRef = new Set(dados.filter(g=>g.mes===mesRef && g.atendimentos>0).map(g=>g.unidade)).size;
 
@@ -4436,7 +4451,7 @@ function renderRelatorioServicos(){
   document.getElementById('rs-kpis').innerHTML = `
     <div class="rs-kpi"><div class="l">Atendimentos</div><div class="v">${fmtNum(atendRef,0)}</div><div class="d">${rsDeltaHtml(atendRef, atendAnt)}</div></div>
     <div class="rs-kpi"><div class="l">Valor</div><div class="v">${fmtBRL(valorRef)}</div><div class="d">${rsDeltaHtml(valorRef, valorAnt)}</div></div>
-    <div class="rs-kpi"><div class="l">Ticket médio</div><div class="v">${fmtBRL(ticketRef)}</div><div class="d">${rsDeltaHtml(ticketRef, ticketAnt)}</div></div>
+    <div class="rs-kpi" title="Valor total ÷ número de banhos (não ÷ todos os atendimentos)"><div class="l">Ticket médio</div><div class="v">${fmtBRL(ticketRef)}</div><div class="d">${rsDeltaHtml(ticketRef, ticketAnt)}</div></div>
     <div class="rs-kpi"><div class="l">Serviços distintos</div><div class="v">${fmtNum(servicosDistintosRef,0)}</div><div class="d flat">${nomeMesPt(mesRef)} ${mesRef.split('-')[0]}</div></div>
     ${fu ? '' : `<div class="rs-kpi"><div class="l">Unidades ativas</div><div class="v">${fmtNum(unidadesAtivasRef,0)}</div><div class="d flat">de ${UNIDADES.length}</div></div>`}
   `;
@@ -4457,10 +4472,11 @@ function renderRelatorioServicos(){
   const porUnidadeAnt = new Map();
   dados.forEach(g => {
     if (g.mes === mesRef){
-      if (!porUnidadeRef.has(g.unidade)) porUnidadeRef.set(g.unidade, { atendimentos: 0, valor: 0 });
+      if (!porUnidadeRef.has(g.unidade)) porUnidadeRef.set(g.unidade, { atendimentos: 0, valor: 0, banho: 0 });
       const acc = porUnidadeRef.get(g.unidade);
       acc.atendimentos += g.atendimentos;
       acc.valor += g.valorTotal || 0;
+      if (SERVICOS_BANHO.has(g.servico)) acc.banho += g.atendimentos;
     }
   });
   if (mesAnt){
@@ -4495,7 +4511,7 @@ function renderRelatorioServicos(){
       .map(([unidade, v]) => {
         const ant = porUnidadeAnt.get(unidade);
         return { unidade, atendimentos: v.atendimentos, valor: v.valor,
-          ticket: v.atendimentos ? v.valor / v.atendimentos : 0,
+          ticket: v.banho ? v.valor / v.banho : 0,
           atendAnt: ant ? ant.atendimentos : null };
       })
       .sort((a,b) => b.valor - a.valor);
