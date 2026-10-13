@@ -844,7 +844,7 @@
 
     <div class="card" id="rs-card-comparativo">
       <h2 style="margin-top:0;">Comparativo entre unidades — <span id="rs-comparativo-mes"></span></h2>
-      <p class="sub">Ranking das unidades no mês selecionado, com variação frente ao mês anterior.</p>
+      <p class="sub" id="rs-comparativo-sub">Ranking das unidades no mês selecionado, com variação frente ao mês anterior.</p>
       <div class="tablewrap"><table id="rs-tabela-comparativo">
         <thead><tr><th>Unidade</th><th class="num">Atendimentos</th><th class="num">Var.</th><th class="num">Valor</th><th class="num">Ticket médio</th></tr></thead>
         <tbody></tbody>
@@ -3015,6 +3015,7 @@ function parseHistoricoServicosRows(rows){
     const m = dataTxt.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (!m) continue;
     const mes = m[3] + '-' + m[2].padStart(2,'0');
+    const dia = Number(m[1]);
     const valorTxt = idx.valor >= 0 ? (row[idx.valor]||'').toString().trim() : '';
     const valor = valorTxt ? Number(valorTxt.replace(/\./g,'').replace(',','.')) : 0;
     const valorFinal = Number.isFinite(valor) ? Math.round(valor*100)/100 : 0;
@@ -3031,7 +3032,7 @@ function parseHistoricoServicosRows(rows){
     g.valorTotal += valorFinal;
     if (temAgendamento){
       const codigoTxt = (row[idx.agendamento]||'').toString().replace(/[^0-9]/g,'');
-      if (codigoTxt) g.agendamentos.push([Number(codigoTxt), porteFlag, valorFinal]);
+      if (codigoTxt) g.agendamentos.push([Number(codigoTxt), porteFlag, valorFinal, dia]);
     }
   }
   return [...grupos.values()].map(g => ({ ...g, valorTotal: Math.round(g.valorTotal*100)/100 }));
@@ -3053,14 +3054,30 @@ function chaveHistoricoServico(item){
 //   — mantém o comportamento antigo (substitui a contagem inteira pela do
 //   arquivo novo), mas já passa a registrar os agendamentos desse arquivo
 //   pra próxima reimportação já conseguir reconciliar de verdade.
+// - Além de somar atendimento genuinely novo, também ENRIQUECE entradas já
+//   existentes que ainda não tinham o dia do mês (agendamentos[3]) salvo —
+//   reimportar um mês já importado antes do dia entrar no formato passa a
+//   preencher esse dado retroativamente, sem duplicar nem recontar nada
+//   (pedido do usuário, 13/10/2026, pra comparar o mesmo intervalo de dias
+//   entre meses enquanto o mês corrente ainda não fechou).
 function mesclarGrupoHistorico(existente, novo){
   if (!existente) return novo;
   const podeReconciliar = Array.isArray(existente.agendamentos) && Array.isArray(novo.agendamentos);
   if (!podeReconciliar) return novo;
-  const vistos = new Set(existente.agendamentos.map(a => a[0]));
-  const novosAg = novo.agendamentos.filter(a => !vistos.has(a[0]));
-  if (!novosAg.length) return existente;
-  const agendamentos = existente.agendamentos.concat(novosAg);
+  const porCodigo = new Map(existente.agendamentos.map(a => [a[0], a]));
+  let mudou = false;
+  novo.agendamentos.forEach(b => {
+    const a = porCodigo.get(b[0]);
+    if (!a){
+      porCodigo.set(b[0], b);
+      mudou = true;
+    } else if (a[3] == null && b[3] != null){
+      porCodigo.set(b[0], b);
+      mudou = true;
+    }
+  });
+  if (!mudou) return existente;
+  const agendamentos = [...porCodigo.values()];
   const atendimentos = agendamentos.length;
   const atendimentosGrande = agendamentos.reduce((s,a) => s + (a[1]===2?1:0), 0);
   const atendimentosMedio = agendamentos.reduce((s,a) => s + (a[1]===1?1:0), 0);
@@ -4314,6 +4331,25 @@ function rsDeltaHtml(curr, prev){
   const arrow = Math.abs(diff) < 0.5 ? '→' : (diff > 0 ? '▲' : '▼');
   return `<span class="d ${cls}">${arrow} ${fmtNum(Math.abs(diff),1)}%</span>`;
 }
+// Soma atendimentos/valor de um conjunto de grupos (unidade+serviço+mês)
+// considerando só os atendimentos até um dia do mês (inclusive), usando o
+// dia salvo em cada entrada de `agendamentos` (agendamentos[i][3]). Grupos
+// sem esse detalhamento (legado, ou arquivo sem coluna AGENDAMENTO) não
+// entram na soma — ficam contados em `semDado`, pra avisar que precisam
+// ser reimportados pra esse comparativo incluir eles.
+function somaGruposAteDia(grupos, diaMax){
+  let atendimentos = 0, valor = 0, semDado = 0;
+  grupos.forEach(g => {
+    if (!Array.isArray(g.agendamentos) || !g.agendamentos.some(a => a[3] != null)){
+      semDado++;
+      return;
+    }
+    g.agendamentos.forEach(a => {
+      if (a[3] != null && a[3] <= diaMax){ atendimentos++; valor += a[2]; }
+    });
+  });
+  return { atendimentos, valor: Math.round(valor*100)/100, semDado };
+}
 
 function setupRelatorioServicos(){
   const selUnidade = document.getElementById('rs-unidade');
@@ -4363,14 +4399,39 @@ function renderRelatorioServicos(){
 
   const idxRef = meses.indexOf(mesRef);
   const idxAnt = idxRef > 0 ? idxRef - 1 : null;
+  const mesAnt = idxAnt != null ? meses[idxAnt] : null;
   const atendRef = serieAtend[idxRef] || 0;
   const valorRef = serieValor[idxRef] || 0;
-  const atendAnt = idxAnt != null ? serieAtend[idxAnt] : null;
-  const valorAnt = idxAnt != null ? serieValor[idxAnt] : null;
+
+  // Enquanto o mês de referência é o mês corrente de verdade (ainda em
+  // andamento), comparar com o total cheio do mês anterior não é justo —
+  // o mês anterior teve mais dias de atendimento. Nesse caso, limita o mês
+  // anterior aos mesmos dias já decorridos no mês atual (ex.: dia 1 a 12),
+  // usando o dia salvo em cada atendimento (pedido do usuário, 13/10/2026).
+  const hoje = new Date();
+  const mesAtualReal = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+  const diaHoje = hoje.getDate();
+  const comparandoPorDia = mesRef === mesAtualReal && idxAnt != null;
+
+  let atendAnt = idxAnt != null ? serieAtend[idxAnt] : null;
+  let valorAnt = idxAnt != null ? serieValor[idxAnt] : null;
+  let antSemDado = 0;
+  if (comparandoPorDia){
+    const soma = somaGruposAteDia(escopo.filter(g => g.mes === mesAnt), diaHoje);
+    atendAnt = soma.atendimentos;
+    valorAnt = soma.valor;
+    antSemDado = soma.semDado;
+  }
+
   const ticketRef = atendRef > 0 ? valorRef / atendRef : 0;
-  const ticketAnt = (idxAnt != null && atendAnt) ? serieValor[idxAnt] / atendAnt : null;
+  const ticketAnt = atendAnt ? valorAnt / atendAnt : null;
   const servicosDistintosRef = new Set(escopo.filter(g=>g.mes===mesRef).map(g=>g.servico)).size;
   const unidadesAtivasRef = new Set(dados.filter(g=>g.mes===mesRef && g.atendimentos>0).map(g=>g.unidade)).size;
+
+  if (comparandoPorDia){
+    document.getElementById('rs-status').textContent += ` ${nomeMesPt(mesRef)} ainda está em andamento (até dia ${diaHoje}) — a comparação com ${nomeMesPt(mesAnt)} usa só os dias 1 a ${diaHoje} desse mês também.` +
+      (antSemDado ? ` ${antSemDado} grupo(s) de ${nomeMesPt(mesAnt)} sem detalhamento por dia ficaram de fora dessa comparação — reimporte o arquivo bruto desse mês pra incluir.` : '');
+  }
 
   document.getElementById('rs-kpis').innerHTML = `
     <div class="rs-kpi"><div class="l">Atendimentos</div><div class="v">${fmtNum(atendRef,0)}</div><div class="d">${rsDeltaHtml(atendRef, atendAnt)}</div></div>
@@ -4394,7 +4455,6 @@ function renderRelatorioServicos(){
 
   const porUnidadeRef = new Map();
   const porUnidadeAnt = new Map();
-  const mesAnt = idxAnt != null ? meses[idxAnt] : null;
   dados.forEach(g => {
     if (g.mes === mesRef){
       if (!porUnidadeRef.has(g.unidade)) porUnidadeRef.set(g.unidade, { atendimentos: 0, valor: 0 });
@@ -4402,16 +4462,33 @@ function renderRelatorioServicos(){
       acc.atendimentos += g.atendimentos;
       acc.valor += g.valorTotal || 0;
     }
-    if (mesAnt && g.mes === mesAnt){
-      if (!porUnidadeAnt.has(g.unidade)) porUnidadeAnt.set(g.unidade, { atendimentos: 0, valor: 0 });
-      const acc = porUnidadeAnt.get(g.unidade);
-      acc.atendimentos += g.atendimentos;
-      acc.valor += g.valorTotal || 0;
-    }
   });
+  if (mesAnt){
+    if (comparandoPorDia){
+      const gruposPorUnidadeAnt = new Map();
+      dados.filter(g => g.mes === mesAnt).forEach(g => {
+        if (!gruposPorUnidadeAnt.has(g.unidade)) gruposPorUnidadeAnt.set(g.unidade, []);
+        gruposPorUnidadeAnt.get(g.unidade).push(g);
+      });
+      gruposPorUnidadeAnt.forEach((grupos, unidade) => {
+        const soma = somaGruposAteDia(grupos, diaHoje);
+        porUnidadeAnt.set(unidade, soma);
+      });
+    } else {
+      dados.filter(g => g.mes === mesAnt).forEach(g => {
+        if (!porUnidadeAnt.has(g.unidade)) porUnidadeAnt.set(g.unidade, { atendimentos: 0, valor: 0 });
+        const acc = porUnidadeAnt.get(g.unidade);
+        acc.atendimentos += g.atendimentos;
+        acc.valor += g.valorTotal || 0;
+      });
+    }
+  }
 
   const cardComp = document.getElementById('rs-card-comparativo');
   document.getElementById('rs-comparativo-mes').textContent = `${nomeMesPt(mesRef)} ${mesRef.split('-')[0]}`;
+  document.getElementById('rs-comparativo-sub').textContent = comparandoPorDia
+    ? `Ranking das unidades no mês selecionado, com variação frente aos dias 1 a ${diaHoje} de ${nomeMesPt(mesAnt)} (mesmo intervalo, já que ${nomeMesPt(mesRef)} ainda está em andamento).`
+    : 'Ranking das unidades no mês selecionado, com variação frente ao mês anterior.';
   if (!fu){
     cardComp.style.display = '';
     const linhasComp = [...porUnidadeRef.entries()]
@@ -4465,7 +4542,8 @@ function renderRelatorioServicos(){
   const insights = [];
   if (idxAnt != null && atendAnt){
     const diffAtend = ((atendRef-atendAnt)/atendAnt)*100;
-    insights.push(`${fu ? escapeHtml(fu) : 'A rede'} ${Math.abs(diffAtend)<1?'ficou estável em':(diffAtend>0?'cresceu':'caiu')} atendimentos em ${nomeMesPt(mesRef)} frente a ${nomeMesPt(meses[idxAnt])} (${diffAtend>=0?'+':''}${fmtNum(diffAtend,1)}%).`);
+    const baseComparacao = comparandoPorDia ? `os dias 1 a ${diaHoje} de ${nomeMesPt(mesAnt)}` : nomeMesPt(mesAnt);
+    insights.push(`${fu ? escapeHtml(fu) : 'A rede'} ${Math.abs(diffAtend)<1?'ficou estável em':(diffAtend>0?'cresceu':'caiu')} atendimentos em ${nomeMesPt(mesRef)} frente a ${baseComparacao} (${diffAtend>=0?'+':''}${fmtNum(diffAtend,1)}%).`);
   }
   if (!fu){
     const porUnidadeVar = [...porUnidadeRef.entries()].map(([unidade, v]) => {
