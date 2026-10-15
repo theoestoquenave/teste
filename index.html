@@ -4297,6 +4297,7 @@ function renderOrcamentosTable(){
         '<button class="btn btn-sm write-action" data-orc-action="duplicar" data-orc="'+orc.id+'">Duplicar</button>'+
         '<button class="btn btn-sm" data-orc-action="imprimir" data-orc="'+orc.id+'">Exportar PDF</button>'+
         '<button class="btn btn-sm" data-orc-action="exportar-excel" data-orc="'+orc.id+'">Exportar Excel</button>'+
+        '<button class="btn btn-sm" data-orc-action="pedido-fornecedor" data-orc="'+orc.id+'">Pedido por fornecedor</button>'+
         '<button class="btn btn-sm btn-ghost write-action" data-orc-action="excluir" data-orc="'+orc.id+'">Excluir</button>'+
       '</div></td>'+
     '</tr>';
@@ -4703,6 +4704,87 @@ async function exportarOrcamentoExcel(orc){
   }
 }
 
+// Pedido do usuário, 2026-10-15: separar o orçamento em um texto pronto pra colar por fornecedor
+// (WhatsApp, e-mail etc.), já que cada fornecedor atende só uma parte dos itens do orçamento.
+// Agrupa pelo campo "fornecedor" cadastrado no produto (STATE.itens) — não existe esse dado no
+// orçamento em si, então item sem fornecedor cadastrado cai num grupo "não informado" à parte.
+function gerarGruposPedidoFornecedor(orc){
+  var porFornecedor = {};
+  (orc.itens||[]).forEach(function(l){
+    var it = getItem(l.itemId);
+    if(!it) return; // item removido do catálogo depois que o orçamento foi salvo
+    var fornecedor = (it.fornecedor||'').trim() || 'Fornecedor não informado';
+    if(!porFornecedor[fornecedor]) porFornecedor[fornecedor] = { fornecedor: fornecedor, linhas: [] };
+    porFornecedor[fornecedor].linhas.push({ nome: it.nome, quantidade: Number(l.quantidade)||0 });
+  });
+  return Object.keys(porFornecedor).sort(function(a,b){
+    if(a==='Fornecedor não informado') return 1;
+    if(b==='Fornecedor não informado') return -1;
+    return a.localeCompare(b,'pt-BR');
+  }).map(function(k){ return porFornecedor[k]; });
+}
+
+function textoPedidoFornecedor(grupo, orc){
+  var linhas = [];
+  linhas.push('Pedido — '+grupo.fornecedor);
+  if(orc && orc.nome) linhas.push('Ref.: '+orc.nome);
+  linhas.push('');
+  grupo.linhas.forEach(function(l){
+    linhas.push('- '+l.nome+': '+fmtNum(l.quantidade,2));
+  });
+  return linhas.join('\n');
+}
+
+// Clipboard API assíncrona pode não ter permissão em alguns navegadores/contextos; o
+// document.execCommand('copy') síncrono via textarea temporário é o fallback mais compatível.
+async function copiarTexto(texto, msgSucesso){
+  try{
+    await navigator.clipboard.writeText(texto);
+    toast(msgSucesso || 'Copiado.');
+    return;
+  }catch(err){ /* tenta o fallback abaixo */ }
+  try{
+    var ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    var ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast(ok ? (msgSucesso || 'Copiado.') : 'Não foi possível copiar automaticamente. Selecione o texto e copie manualmente.');
+  }catch(err2){
+    toast('Não foi possível copiar automaticamente. Selecione o texto e copie manualmente.');
+  }
+}
+
+function abrirPedidoFornecedorModal(orc){
+  var grupos = gerarGruposPedidoFornecedor(orc);
+  if(grupos.length===0){ toast('Este orçamento não tem itens para gerar pedidos.'); return; }
+  var body = '<div class="banner info">Um texto pronto para colar por fornecedor (WhatsApp, e-mail etc.), com os itens e quantidades deste orçamento.</div>'+
+    grupos.map(function(g, i){
+      var texto = textoPedidoFornecedor(g, orc);
+      var linhas = Math.min(Math.max(g.linhas.length+3,5),14);
+      return '<div class="field" style="margin-bottom:16px;">'+
+        '<label>'+escapeHtml(g.fornecedor)+' — '+g.linhas.length+' item(ns)</label>'+
+        '<textarea class="pedido-forn-texto" readonly rows="'+linhas+'">'+escapeHtml(texto)+'</textarea>'+
+        '<button class="btn btn-sm" data-copiar-forn="'+i+'" style="margin-top:6px;">Copiar pedido deste fornecedor</button>'+
+      '</div>';
+    }).join('');
+  var foot = '<button class="btn btn-ghost" id="pedido-forn-fechar">Fechar</button><button class="btn btn-primary" id="pedido-forn-copiar-tudo">Copiar tudo</button>';
+  openModal('Pedido por fornecedor — '+escapeHtml(orc.nome), body, foot, 'wide');
+  document.getElementById('pedido-forn-fechar').addEventListener('click', closeModal);
+  document.getElementById('pedido-forn-copiar-tudo').addEventListener('click', function(){
+    var textoTudo = grupos.map(function(g){ return textoPedidoFornecedor(g, orc); }).join('\n\n----------\n\n');
+    copiarTexto(textoTudo, 'Pedido de todos os fornecedores copiado.');
+  });
+  document.querySelectorAll('[data-copiar-forn]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var idx = Number(btn.dataset.copiarForn);
+      copiarTexto(textoPedidoFornecedor(grupos[idx], orc), 'Pedido de '+grupos[idx].fornecedor+' copiado.');
+    });
+  });
+}
+
 /* ============================================================
    EVENT WIRING
    ============================================================ */
@@ -4736,6 +4818,7 @@ function wireStaticEvents(){
     if(action==='abrir'){ openOrcamentoModal(orc.id); }
     else if(action==='imprimir'){ imprimirOrcamento(orc); }
     else if(action==='exportar-excel'){ await exportarOrcamentoExcel(orc); }
+    else if(action==='pedido-fornecedor'){ abrirPedidoFornecedorModal(orc); }
     else if(action==='duplicar'){
       STATE.orcamentos.push({
         id: uid('orc'), nome: orc.nome+' (cópia)', observacao: orc.observacao,
