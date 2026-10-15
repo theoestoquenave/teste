@@ -1,0 +1,4 @@
+# Saída gerada pelo relatório mensal (reports/gerar_relatorio_mensal.mjs) —
+# imagens entregues direto ao usuário via SendUserFile, não precisam ficar
+# versionadas (recriadas a cada execução).
+reports/saida/
