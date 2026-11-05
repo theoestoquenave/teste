@@ -1697,7 +1697,10 @@ function rendimentoBadgeHtml(mapaRend, unidade, produto){
   const label = l.desvioPct < -20 ? 'abaixo do esperado' : (l.desvioPct > 20 ? 'acima do esperado' : 'dentro do esperado');
   const pct = `${l.desvioPct>0?'+':''}${fmtNum(l.desvioPct,0)}%`;
   const detalhe = `Última compra em ${l.mesUltimaCompra}: ${fmtNum(l.quantidadeUltimaCompra,0)} un. deveria(m) render ${fmtNum(l.servicosEsperados,0)} atendimento(s); ${fmtNum(l.servicosFeitos,0)} já feito(s) desde então.${l.estimado?' (rendimento estimado)':''}${l.sobraHerdada?` (inclui ${fmtNum(l.sobraHerdada,0)} un. de sobra herdada da compra anterior, que veio menor que a de antes dela)`:''}`;
-  return `<span class="chip ${cls}" title="${escapeHtml(detalhe)}">${label} (${pct})</span>`;
+  return `<div>
+    <span class="chip ${cls}" title="${escapeHtml(detalhe)}">${label} (${pct})</span>
+    <div class="mono" style="font-size:11px; color:var(--ink-faint); margin-top:3px; white-space:nowrap;">esperado ${fmtNum(l.servicosEsperados,0)}${l.estimado?'*':''} · feito ${fmtNum(l.servicosFeitos,0)}</div>
+  </div>`;
 }
 
 function construirLinhasAprovacaoHtml(pedidos){
