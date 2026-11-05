@@ -1691,7 +1691,10 @@ function rendimentoBadgeHtml(mapaRend, unidade, produto){
     return `<span class="chip obs" title="Nenhuma compra anterior desse produto registrada nessa unidade — sem base pra comparar.">sem histórico</span>`;
   }
   if (l.servicosEsperados == null){
-    return `<span class="chip obs" title="Última compra em ${l.mesUltimaCompra} (${fmtNum(l.quantidadeUltimaCompra,0)} un.), mas sem rendimento cadastrado pra esse produto — não dá pra calcular o esperado.">sem esperado calculado</span>`;
+    return `<div>
+    <span class="chip obs" title="Última compra em ${l.mesUltimaCompra} (${fmtNum(l.quantidadeUltimaCompra,0)} un.), mas sem rendimento cadastrado pra esse produto — não dá pra calcular o esperado.">sem esperado calculado</span>
+    <div style="font-size:11px; color:var(--ink-faint); margin-top:1px; white-space:nowrap;">último pedido: ${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</div>
+  </div>`;
   }
   const cls = l.desvioPct < -20 ? 'pendente' : 'aprovado';
   const label = l.desvioPct < -20 ? 'abaixo do esperado' : (l.desvioPct > 20 ? 'acima do esperado' : 'dentro do esperado');
@@ -1700,6 +1703,7 @@ function rendimentoBadgeHtml(mapaRend, unidade, produto){
   return `<div>
     <span class="chip ${cls}" title="${escapeHtml(detalhe)}">${label} (${pct})</span>
     <div class="mono" style="font-size:11px; color:var(--ink-faint); margin-top:3px; white-space:nowrap;">esperado ${fmtNum(l.servicosEsperados,0)}${l.estimado?'*':''} · feito ${fmtNum(l.servicosFeitos,0)}</div>
+    <div style="font-size:11px; color:var(--ink-faint); margin-top:1px; white-space:nowrap;">último pedido: ${nomeMesPt(l.mesUltimaCompra)} ${l.mesUltimaCompra.split('-')[0]}</div>
   </div>`;
 }
 
