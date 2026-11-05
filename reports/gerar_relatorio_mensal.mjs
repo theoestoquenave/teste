@@ -50,7 +50,14 @@ function parseArgs() {
 
 // Produtos que não devem aparecer nas imagens de relatório (continuam no
 // comparativo interno do painel — pedido explícito do usuário em 25/09/2026).
-const OCULTOS_NA_IMAGEM = new Set(['SOFT TOUCH 500ML', 'EXPERT OIL REDUX 250G']);
+// Linha Hidratação Luxo/Luiz Renato (Gato e Luiz Renato) excluída em
+// 05/11/2026 — compra feita sem pedido das unidades, então o "esperado ×
+// feito" dela não reflete o que as unidades realmente pediram.
+const OCULTOS_NA_IMAGEM = new Set([
+  'SOFT TOUCH 500ML', 'EXPERT OIL REDUX 250G',
+  'SHAMPOO HIDRATANTE  24 KILATES 1L (LUXO)', 'MASCARA HIDRATANTE 24 KILATES 900GR (LUXO)', 'COLONIA FOREVER GOLD (LUXO)',
+  'Shampoo Luiz Renato', 'Máscara Líquida Hydra Infusion Luiz Renato 500mL', 'Máscara Power Dose Luiz Renato 280g', 'Colônia Luiz Renato - 120ml',
+]);
 
 const MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 function mesLabel(mesYYYYMM) {

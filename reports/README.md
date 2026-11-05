@@ -71,6 +71,14 @@ com a quantidade do pedido novo.
 continuam no comparativo interno do painel) — pedido do usuário em
 25/09/2026, ver `OCULTOS_NA_IMAGEM` no script.
 
+A linha Hidratação Luxo/Luiz Renato também ficou de fora a partir de
+05/11/2026 (`SHAMPOO HIDRATANTE 24 KILATES 1L (LUXO)`, `MASCARA HIDRATANTE 24
+KILATES 900GR (LUXO)`, `COLONIA FOREVER GOLD (LUXO)`, `Shampoo Luiz Renato`,
+`Máscara Líquida Hydra Infusion Luiz Renato 500mL`, `Máscara Power Dose Luiz
+Renato 280g`, `Colônia Luiz Renato - 120ml`) — essas compras são feitas sem
+pedido das unidades, então o "esperado × feito" delas não reflete o que as
+unidades pediram.
+
 ## Entrega (decidido em 25/09/2026, ajustado no mesmo dia)
 
 Sem infraestrutura de envio automático por WhatsApp (exigiria guardar
