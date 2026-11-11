@@ -105,7 +105,7 @@
   .row{display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;}
   .field{display:flex; flex-direction:column; gap:5px; min-width:160px;}
   .field label{font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600;}
-  select, input[type=text], input[type=month], input[type=number], input[type=search]{
+  select, input[type=text], input[type=month], input[type=date], input[type=number], input[type=search]{
     font:inherit; padding:8px 10px; border-radius:7px; border:1px solid var(--line-strong);
     background:var(--paper); color:var(--ink); font-size:13.5px;
   }
@@ -239,21 +239,6 @@
   .switch-group button.on{background:var(--accent); color:#fff;}
 
   .checkbox-row{display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-soft);}
-
-  .day-toggle-row{display:flex; flex-wrap:wrap; gap:6px;}
-  .day-toggle{
-    border:1px solid var(--line-strong); background:var(--surface); color:var(--ink-soft);
-    border-radius:8px; padding:5px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
-    font-family:inherit; min-width:34px; text-align:center;
-  }
-  .day-toggle:hover{background:var(--surface-alt);}
-  .day-toggle.active{background:var(--accent); border-color:var(--accent); color:#fff;}
-  .day-toggle.all{color:var(--ink-faint);}
-  .day-group-label{
-    display:flex; align-items:center; font-size:11px; font-weight:600; color:var(--ink-faint);
-    text-transform:uppercase; letter-spacing:.05em; padding:0 2px; align-self:center;
-  }
-  .day-group-label:not(:first-child){margin-left:6px;}
 
   @media (max-width:780px){
     body{flex-direction:column;}
@@ -389,9 +374,16 @@
         </div>
         <button class="btn-approve" id="ap-aprovar-todos" style="margin-left:auto;">Aprovar todos os filtrados</button>
       </div>
-      <div class="field" style="margin-top:14px;">
-        <label>Datas de registro <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
-        <div class="day-toggle-row" id="ap-dias"></div>
+      <div class="row" style="margin-top:14px; align-items:flex-end;">
+        <div class="field">
+          <label for="ap-data-inicio">Data inicial</label>
+          <input type="date" id="ap-data-inicio">
+        </div>
+        <div class="field">
+          <label for="ap-data-fim">Data final</label>
+          <input type="date" id="ap-data-fim">
+        </div>
+        <button type="button" class="btn-ghost btn-sm" id="ap-data-limpar">Limpar</button>
       </div>
     </div>
     <div class="card">
@@ -425,9 +417,16 @@
           <label for="ex-somente-pedidos">Mostrar só itens com pedido aprovado</label>
         </div>
       </div>
-      <div class="field" style="margin-top:14px;">
-        <label>Datas de aprovação <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
-        <div class="day-toggle-row" id="ex-dias"></div>
+      <div class="row" style="margin-top:14px; align-items:flex-end;">
+        <div class="field">
+          <label for="ex-data-inicio">Data inicial</label>
+          <input type="date" id="ex-data-inicio">
+        </div>
+        <div class="field">
+          <label for="ex-data-fim">Data final</label>
+          <input type="date" id="ex-data-fim">
+        </div>
+        <button type="button" class="btn-ghost btn-sm" id="ex-data-limpar">Limpar</button>
       </div>
     </div>
     <div class="card">
@@ -504,9 +503,16 @@
       </div>
     </div>
     <div class="card">
-      <div class="field">
-        <label>Datas de aprovação <span style="font-weight:400; color:var(--ink-faint);">— selecione uma ou mais, inclusive de meses diferentes</span></label>
-        <div class="day-toggle-row" id="rel-dias"></div>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field">
+          <label for="rel-data-inicio">Data inicial</label>
+          <input type="date" id="rel-data-inicio">
+        </div>
+        <div class="field">
+          <label for="rel-data-fim">Data final</label>
+          <input type="date" id="rel-data-fim">
+        </div>
+        <button type="button" class="btn-ghost btn-sm" id="rel-data-limpar">Limpar</button>
       </div>
     </div>
 
@@ -1577,11 +1583,12 @@ function processarLinhasImportadas(rows){
 }
 
 /* =========================== APROVAÇÃO =========================== */
-// Datas de registro (ts) selecionadas no filtro da tela de Aprovações —
-// Banho & Tosa. Ao contrário do filtro de aprovação (Consolidado, Export,
-// Relatórios), usa a data de criação do pedido, já que a maioria dos
-// pedidos aqui ainda está Pendente (sem data de aprovação nenhuma).
-let apDatasSelecionadas = new Set();
+// Período (Data inicial/Data final) selecionado no filtro da tela de
+// Aprovações — Banho & Tosa. Ao contrário do filtro de aprovação
+// (Consolidado, Export, Relatórios), usa a data de criação do pedido, já
+// que a maioria dos pedidos aqui ainda está Pendente (sem data de
+// aprovação nenhuma).
+let apRange = { inicio: null, fim: null };
 
 function setupAprovacao(){
   document.getElementById('ap-unidade').innerHTML = '<option value="">Todas</option>' +
@@ -1596,38 +1603,7 @@ function setupAprovacao(){
       return state;
     }, `${ids.length} pedido(s) aprovado(s).`);
   });
-  const mesInicial = mesAtual();
-  apDatasSelecionadas = new Set(datasDisponiveisPor(pedidosState.pedidosBanho, 'ts').filter(d => d.slice(0,7) === mesInicial));
-  renderDiaChipsAprovacao();
-}
-function renderDiaChipsAprovacao(){
-  const datas = datasDisponiveisPor(pedidosState.pedidosBanho, 'ts');
-  apDatasSelecionadas = new Set([...apDatasSelecionadas].filter(d => datas.includes(d)));
-  const wrap = document.getElementById('ap-dias');
-  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido registrado ainda</span>'; return; }
-  const todosAtivo = apDatasSelecionadas.size === 0;
-  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
-  let grupoAtual = null;
-  datas.forEach(iso => {
-    const [ano, mesNum, dia] = iso.split('-').map(Number);
-    const chaveGrupo = ano + '-' + mesNum;
-    if (chaveGrupo !== grupoAtual){
-      grupoAtual = chaveGrupo;
-      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
-    }
-    html += `<button type="button" class="day-toggle${apDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
-  });
-  wrap.innerHTML = html;
-  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const iso = btn.dataset.data;
-      if (iso === ''){ apDatasSelecionadas = new Set(); }
-      else{
-        if (apDatasSelecionadas.has(iso)) apDatasSelecionadas.delete(iso); else apDatasSelecionadas.add(iso);
-      }
-      renderAprovacao();
-    });
-  });
+  apRange = wireFiltroPeriodo('ap-data', rangeDoMes(mesAtual()), renderAprovacao);
 }
 
 function filteredPedidosBanho(){
@@ -1635,7 +1611,7 @@ function filteredPedidosBanho(){
   const status = document.getElementById('ap-status').value;
   return pedidosState.pedidosBanho.filter(p =>
     (!unidade || p.unidade === unidade) &&
-    (apDatasSelecionadas.size === 0 || apDatasSelecionadas.has(dataAprovacaoISO(p.ts))) &&
+    (rangeVazio(apRange) || dataNoRange(dataAprovacaoISO(p.ts), apRange)) &&
     (!status || p.status === status)
   ).sort((a,b) => (a.atualizadoEm < b.atualizadoEm ? 1 : -1));
 }
@@ -1864,7 +1840,6 @@ function wireAprovacaoTbody(tbody, arrayKey){
 }
 
 function renderAprovacao(){
-  renderDiaChipsAprovacao();
   const tbody = document.querySelector('#ap-tabela tbody');
   const pedidos = filteredPedidosBanho();
   tbody.innerHTML = construirLinhasAprovacaoHtml(pedidos);
@@ -1875,8 +1850,8 @@ function renderAprovacao(){
 }
 
 /* =========================== EXPORT FORNECEDOR =========================== */
-// Datas de aprovação selecionadas no filtro dessa tela.
-let exDatasSelecionadas = new Set();
+// Período (Data inicial/Data final) de aprovação selecionado no filtro dessa tela.
+let exRange = { inicio: null, fim: null };
 
 function setupExport(){
   fillSelect(document.getElementById('ex-unidade'), UNIDADES.map(u=>u.nome));
@@ -1887,44 +1862,13 @@ function setupExport(){
   document.getElementById('exo-baixar').addEventListener('click', () => baixarExportOutro());
   document.getElementById('ex-toalhas-baixar').addEventListener('click', () => baixarExportToalhasCsv());
   document.getElementById('ex-outros-baixar').addEventListener('click', () => baixarExportOutrosTodasUnidadesCsv());
-  const mesInicial = mesAtual();
-  exDatasSelecionadas = new Set(datasDisponiveisPor(pedidosState.pedidosBanho, 'dataAprovacao', p => p.status === 'Aprovado').filter(d => d.slice(0,7) === mesInicial));
-  renderDiaChipsExport();
-}
-function renderDiaChipsExport(){
-  const datas = datasDisponiveisPor(pedidosState.pedidosBanho, 'dataAprovacao', p => p.status === 'Aprovado');
-  exDatasSelecionadas = new Set([...exDatasSelecionadas].filter(d => datas.includes(d)));
-  const wrap = document.getElementById('ex-dias');
-  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido de banho & tosa aprovado ainda</span>'; return; }
-  const todosAtivo = exDatasSelecionadas.size === 0;
-  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
-  let grupoAtual = null;
-  datas.forEach(iso => {
-    const [ano, mesNum, dia] = iso.split('-').map(Number);
-    const chaveGrupo = ano + '-' + mesNum;
-    if (chaveGrupo !== grupoAtual){
-      grupoAtual = chaveGrupo;
-      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
-    }
-    html += `<button type="button" class="day-toggle${exDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
-  });
-  wrap.innerHTML = html;
-  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const iso = btn.dataset.data;
-      if (iso === ''){ exDatasSelecionadas = new Set(); }
-      else{
-        if (exDatasSelecionadas.has(iso)) exDatasSelecionadas.delete(iso); else exDatasSelecionadas.add(iso);
-      }
-      renderExport();
-    });
-  });
+  exRange = wireFiltroPeriodo('ex-data', rangeDoMes(mesAtual()), renderExport);
 }
 
 function pedidoAprovadoExport(){
   const unidade = document.getElementById('ex-unidade').value;
   return pedidosState.pedidosBanho.find(p => p.unidade === unidade && p.status === 'Aprovado' &&
-    (exDatasSelecionadas.size === 0 || exDatasSelecionadas.has(dataAprovacaoISO(p.dataAprovacao))));
+    (rangeVazio(exRange) || dataNoRange(dataAprovacaoISO(p.dataAprovacao), exRange)));
 }
 
 // Só itens com código confirmado no catálogo do fornecedor principal E não
@@ -1961,7 +1905,7 @@ function computeExportRowsOutro(){
 // selecionado. Reaproveita computeToalhasPorUnidade (mesma função da tela
 // de Relatórios de gastos, cada uma com seu próprio filtro de datas).
 function renderExportToalhas(){
-  const toalhas = computeToalhasPorUnidade(exDatasSelecionadas);
+  const toalhas = computeToalhasPorUnidade(exRange);
   const totalQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
   const totalRs = toalhas.reduce((s,r)=>s+r.total, 0);
   document.getElementById('ex-toalhas-total-qtd').textContent = totalQtd;
@@ -1970,7 +1914,7 @@ function renderExportToalhas(){
   tb.innerHTML = totalQtd > 0
     ? toalhas.map(r => `<tr class="${r.qtd===0?'zero-row':''}"><td>${r.unidade}</td><td class="num mono">${r.qtd}</td><td class="num mono">${fmtBRL(r.total)}</td></tr>`).join('')
       + `<tr style="font-weight:600;"><td>Total (todas as unidades)</td><td class="num mono">${totalQtd}</td><td class="num mono">${fmtBRL(totalRs)}</td></tr>`
-    : `<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado ${exDatasSelecionadas.size?'nessas datas':'ainda'}.</div></td></tr>`;
+    : `<tr><td colspan="3"><div class="empty">Nenhum pedido de toalhas aprovado ${!rangeVazio(exRange)?'nessas datas':'ainda'}.</div></td></tr>`;
 }
 
 // Planilha (3): os demais itens de "Outro fornecedor" (exceto o rolo de toalha,
@@ -1982,7 +1926,7 @@ function computeOutrosItensTodasUnidades(){
     const preco = Number(item.preco||0);
     const porUnidade = UNIDADES.map(u => {
       const pedido = pedidosState.pedidosBanho.find(p => p.unidade === u.nome && p.status === 'Aprovado' &&
-        (exDatasSelecionadas.size === 0 || exDatasSelecionadas.has(dataAprovacaoISO(p.dataAprovacao))));
+        (rangeVazio(exRange) || dataNoRange(dataAprovacaoISO(p.dataAprovacao), exRange)));
       const it = pedido ? (pedido.itens||[]).find(i => i.produto === item.produto) : null;
       return it ? Number(it.quantidade||0) : 0;
     });
@@ -2006,20 +1950,20 @@ function renderExportOutrosTodasUnidades(){
         ${l.porUnidade.map(q => `<td class="num mono">${q||'-'}</td>`).join('')}
         <td class="num mono" style="font-weight:600;">${l.totalQtd}</td><td class="num mono">${fmtBRL(l.totalRs)}</td>
       </tr>`).join('')
-    : `<tr><td colspan="${3 + UNIDADES.length}"><div class="empty">Nenhum desses itens foi aprovado em nenhuma unidade ${exDatasSelecionadas.size?'nessas datas':'ainda'}.</div></td></tr>`;
+    : `<tr><td colspan="${3 + UNIDADES.length}"><div class="empty">Nenhum desses itens foi aprovado em nenhuma unidade ${!rangeVazio(exRange)?'nessas datas':'ainda'}.</div></td></tr>`;
 
   document.getElementById('ex-outros-total-rs').textContent = fmtBRL(linhas.reduce((s,l)=>s+l.totalRs, 0));
 }
 
 function baixarExportToalhasCsv(){
-  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
-  const toalhas = computeToalhasPorUnidade(exDatasSelecionadas);
+  const datasSufixo = sufixoArquivoDatas(exRange);
+  const toalhas = computeToalhasPorUnidade(exRange);
   const totalQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
-  if (!totalQtd){ toast(`Não há pedido de toalhas aprovado ${exDatasSelecionadas.size?'nessas datas':'ainda'}.`, 'error'); return; }
+  if (!totalQtd){ toast(`Não há pedido de toalhas aprovado ${!rangeVazio(exRange)?'nessas datas':'ainda'}.`, 'error'); return; }
   const cat = findProdutoBanho(TOALHA_PRODUTO_NOME);
   const preco = cat ? Number(cat.preco||0) : 0;
   const totalRs = toalhas.reduce((s,r)=>s+r.total, 0);
-  const lines = [`PEDIDO DE TOALHAS;${rotuloPeriodo(exDatasSelecionadas)}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
+  const lines = [`PEDIDO DE TOALHAS;${rotuloPeriodo(exRange)}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
   toalhas.forEach(r => lines.push([r.unidade, r.qtd, toBRNum(r.total)].join(';')));
   lines.push('');
   lines.push(`Total de toalhas=;${totalQtd}`);
@@ -2029,9 +1973,9 @@ function baixarExportToalhasCsv(){
 }
 
 function baixarExportOutrosTodasUnidadesCsv(){
-  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
+  const datasSufixo = sufixoArquivoDatas(exRange);
   const linhas = computeOutrosItensTodasUnidades().filter(l => l.totalQtd > 0);
-  if (!linhas.length){ toast(`Não há pedido desses itens aprovado ${exDatasSelecionadas.size?'nessas datas':'ainda'}.`, 'error'); return; }
+  if (!linhas.length){ toast(`Não há pedido desses itens aprovado ${!rangeVazio(exRange)?'nessas datas':'ainda'}.`, 'error'); return; }
   const header = ['PRODUTO','PRECO_UNITARIO_REF', ...UNIDADES.map(u => nomeUnidadeCurto(u.nome).toUpperCase()), 'TOTAL_QTDE', 'TOTAL_RS_REF'];
   const lines = [header.join(';')];
   linhas.forEach(l => lines.push([l.produto, l.preco?toBRNum(l.preco):'', ...l.porUnidade, l.totalQtd, toBRNum(l.totalRs)].join(';')));
@@ -2040,12 +1984,11 @@ function baixarExportOutrosTodasUnidadesCsv(){
 }
 
 function renderExport(){
-  renderDiaChipsExport();
   const somentePedidos = document.getElementById('ex-somente-pedidos').checked;
   let rows = computeExportRows();
   if (somentePedidos) rows = rows.filter(r => r.qtd > 0);
   const tbody = document.querySelector('#ex-tabela tbody');
-  if (!rows.length){ tbody.innerHTML = `<tr><td colspan="9"><div class="empty">Nenhum item aprovado para essa unidade ${exDatasSelecionadas.size?'nessas datas':'ainda'}.</div></td></tr>`; }
+  if (!rows.length){ tbody.innerHTML = `<tr><td colspan="9"><div class="empty">Nenhum item aprovado para essa unidade ${!rangeVazio(exRange)?'nessas datas':'ainda'}.</div></td></tr>`; }
   else tbody.innerHTML = rows.map(r => `
     <tr class="${r.qtd===0?'zero-row':''}">
       <td>${r.grupo||'-'}</td><td class="mono">${r.ean}</td><td>${r.produto}</td><td>${r.linha||'-'}</td>
@@ -2093,7 +2036,7 @@ async function offerDownload(filename, content){
 
 function baixarExportCompleto(){
   const unidade = document.getElementById('ex-unidade').value;
-  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
+  const datasSufixo = sufixoArquivoDatas(exRange);
   const rows = computeExportRows().filter(r => r.qtd > 0);
   if (!rows.length){ toast('Não há itens aprovados pra exportar ainda.', 'error'); return; }
   const header = ['GRUPO','CODIGO','PRODUTO','LINHA','MULTIPLOS_POR_CAIXA','PRECO_UNITARIO','QTDE_EM_UN','QTDE_DE_CAIXAS','TOTAL_RS'];
@@ -2105,7 +2048,7 @@ function baixarExportCompleto(){
 
 function baixarExportImportacao(){
   const unidade = document.getElementById('ex-unidade').value;
-  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
+  const datasSufixo = sufixoArquivoDatas(exRange);
   const codigo = unidadeCodigo(unidade);
   const rows = computeExportRows().filter(r => r.qtd > 0);
   if (!rows.length){ toast('Não há itens aprovados pra exportar ainda.', 'error'); return; }
@@ -2117,7 +2060,7 @@ function baixarExportImportacao(){
 
 function baixarExportOutro(){
   const unidade = document.getElementById('ex-unidade').value;
-  const datasSufixo = sufixoArquivoDatas(exDatasSelecionadas);
+  const datasSufixo = sufixoArquivoDatas(exRange);
   const rows = computeExportRowsOutro().filter(r => r.qtd > 0);
   if (!rows.length){ toast('Não há itens de outro fornecedor aprovados pra exportar ainda.', 'error'); return; }
   const header = ['PRODUTO','FORNECEDOR','PRECO_UNITARIO_REF','QTDE','TOTAL_RS_REF'];
@@ -2572,32 +2515,59 @@ function dataAprovacaoISO(iso){
   const d = new Date(iso);
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
-const NOMES_MES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-// Datas distintas (YYYY-MM-DD) tiradas de um campo de data de uma lista de
-// pedidos — genérico, usado em todos os filtros de "Datas de ..." do painel
-// (aprovação, registro), com um filtro opcional (ex.: só status Aprovado).
-function datasDisponiveisPor(pedidos, campo, filtro){
-  const datas = new Set();
-  pedidos.forEach(p => {
-    if (filtro && !filtro(p)) return;
-    const iso = dataAprovacaoISO(p[campo]);
-    if (iso) datas.add(iso);
-  });
-  return [...datas].sort();
+/* Filtro de período (Data inicial/Data final) usado nas abas de Aprovações,
+   Exportar e Relatórios — intervalo contínuo (substituiu a seleção de dias
+   avulsos em 11/11/2026, pedido do usuário pra ficar igual ao formato do
+   painel de facilities). range = {inicio, fim}, cada lado YYYY-MM-DD ou
+   null (sem limite nesse lado); os dois null = "todas as datas". */
+function dataNoRange(iso, range){
+  if (!iso) return false;
+  if (range.inicio && iso < range.inicio) return false;
+  if (range.fim && iso > range.fim) return false;
+  return true;
 }
-// Texto legível (dd/mm/aaaa, separadas por vírgula) das datas selecionadas —
-// usado nos cabeçalhos de CSV. "todas as datas" quando nada está marcado.
-function rotuloPeriodo(datasSelecionadas){
-  if (!datasSelecionadas.size) return 'todas as datas';
-  return [...datasSelecionadas].sort().map(iso => {
-    const [ano, mes, dia] = iso.split('-');
-    return `${dia}/${mes}/${ano}`;
-  }).join(', ');
+function rangeVazio(range){ return !range.inicio && !range.fim; }
+// {inicio, fim} cobrindo o mês inteiro (YYYY-MM) — usado pra já abrir cada
+// tela filtrada no mês atual, como antes.
+function rangeDoMes(mesYYYYMM){
+  const [ano, mes] = mesYYYYMM.split('-').map(Number);
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  return { inicio: mesYYYYMM + '-01', fim: mesYYYYMM + '-' + String(ultimoDia).padStart(2,'0') };
 }
-// Sufixo de nome de arquivo com as datas selecionadas — mantém os nomes de
+function fmtDataBR(iso){ const [a,m,d] = iso.split('-'); return `${d}/${m}/${a}`; }
+// Texto legível do período selecionado — usado nos cabeçalhos de CSV.
+// "todas as datas" quando nenhum dos dois campos está preenchido.
+function rotuloPeriodo(range){
+  if (rangeVazio(range)) return 'todas as datas';
+  if (range.inicio && range.fim) return range.inicio === range.fim ? fmtDataBR(range.inicio) : `${fmtDataBR(range.inicio)} a ${fmtDataBR(range.fim)}`;
+  if (range.inicio) return `a partir de ${fmtDataBR(range.inicio)}`;
+  return `até ${fmtDataBR(range.fim)}`;
+}
+// Sufixo de nome de arquivo com o período selecionado — mantém os nomes de
 // CSV consistentes.
-function sufixoArquivoDatas(datasSelecionadas){
-  return datasSelecionadas.size ? '_' + [...datasSelecionadas].sort().join('_') : '_todas-as-datas';
+function sufixoArquivoDatas(range){
+  if (rangeVazio(range)) return '_todas-as-datas';
+  return '_' + (range.inicio || 'inicio') + '_a_' + (range.fim || 'fim');
+}
+// Monta o filtro de período (liga os 2 <input type="date"> + botão Limpar,
+// uma única vez no setup da tela — não recriado a cada render, pra manter o
+// valor digitado ao trocar de aba). Retorna o objeto range (mutável): os
+// listeners atualizam esse mesmo objeto e chamam aoMudar().
+function wireFiltroPeriodo(prefixoId, rangeInicial, aoMudar){
+  const range = { ...rangeInicial };
+  const inpIni = document.getElementById(prefixoId + '-inicio');
+  const inpFim = document.getElementById(prefixoId + '-fim');
+  const btnLimpar = document.getElementById(prefixoId + '-limpar');
+  inpIni.value = range.inicio || '';
+  inpFim.value = range.fim || '';
+  inpIni.addEventListener('change', () => { range.inicio = inpIni.value || null; aoMudar(); });
+  inpFim.addEventListener('change', () => { range.fim = inpFim.value || null; aoMudar(); });
+  btnLimpar.addEventListener('click', () => {
+    range.inicio = null; range.fim = null;
+    inpIni.value = ''; inpFim.value = '';
+    aoMudar();
+  });
+  return range;
 }
 
 
@@ -2605,58 +2575,23 @@ function sufixoArquivoDatas(datasSelecionadas){
 /* Gasto = quantidade aprovada x preço do catálogo (CATALOGO_BANHO, já com os
    itens extras cadastrados pela tela de Catálogo). Só pedidos com status
    Aprovado entram, mesma regra usada em Exportar. */
-// Datas de aprovação selecionadas nessa tela.
-let relDatasSelecionadas = new Set();
-
-function datasAprovacaoRelatoriosDisponiveis(){
-  return datasDisponiveisPor(pedidosState.pedidosBanho, 'dataAprovacao', p => p.status === 'Aprovado');
-}
+// Período (Data inicial/Data final) de aprovação selecionado nessa tela.
+let relRange = { inicio: null, fim: null };
 
 function setupRelatorios(){
   document.getElementById('rel-toalhas-baixar').addEventListener('click', baixarPedidoToalhasCsv);
-  const mesInicial = mesAtual();
-  relDatasSelecionadas = new Set(datasAprovacaoRelatoriosDisponiveis().filter(d => d.slice(0,7) === mesInicial));
-  renderDiaChipsRelatorios();
-}
-function renderDiaChipsRelatorios(){
-  const datas = datasAprovacaoRelatoriosDisponiveis();
-  relDatasSelecionadas = new Set([...relDatasSelecionadas].filter(d => datas.includes(d)));
-  const wrap = document.getElementById('rel-dias');
-  if (!datas.length){ wrap.innerHTML = '<span class="day-toggle all" style="cursor:default;">Nenhum pedido aprovado ainda</span>'; return; }
-  const todosAtivo = relDatasSelecionadas.size === 0;
-  let html = `<button type="button" class="day-toggle all${todosAtivo?' active':''}" data-data="">Todos</button>`;
-  let grupoAtual = null;
-  datas.forEach(iso => {
-    const [ano, mesNum, dia] = iso.split('-').map(Number);
-    const chaveGrupo = ano + '-' + mesNum;
-    if (chaveGrupo !== grupoAtual){
-      grupoAtual = chaveGrupo;
-      html += `<span class="day-group-label">${NOMES_MES_ABREV[mesNum-1]} ${ano}</span>`;
-    }
-    html += `<button type="button" class="day-toggle${relDatasSelecionadas.has(iso)?' active':''}" data-data="${iso}">${dia}</button>`;
-  });
-  wrap.innerHTML = html;
-  wrap.querySelectorAll('.day-toggle[data-data]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const iso = btn.dataset.data;
-      if (iso === ''){ relDatasSelecionadas = new Set(); }
-      else{
-        if (relDatasSelecionadas.has(iso)) relDatasSelecionadas.delete(iso); else relDatasSelecionadas.add(iso);
-      }
-      renderRelatorios();
-    });
-  });
+  relRange = wireFiltroPeriodo('rel-data', rangeDoMes(mesAtual()), renderRelatorios);
 }
 
 function baixarPedidoToalhasCsv(){
-  const datasSufixo = sufixoArquivoDatas(relDatasSelecionadas);
-  const toalhas = computeToalhasPorUnidade(relDatasSelecionadas);
+  const datasSufixo = sufixoArquivoDatas(relRange);
+  const toalhas = computeToalhasPorUnidade(relRange);
   const totalQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
-  if (!totalQtd){ toast(`Não há pedido de toalhas aprovado ${relDatasSelecionadas.size?'nessas datas':'ainda'}.`, 'error'); return; }
+  if (!totalQtd){ toast(`Não há pedido de toalhas aprovado ${!rangeVazio(relRange)?'nessas datas':'ainda'}.`, 'error'); return; }
   const cat = findProdutoBanho(TOALHA_PRODUTO_NOME);
   const preco = cat ? Number(cat.preco||0) : 0;
   const totalRs = toalhas.reduce((s,r)=>s+r.total, 0);
-  const lines = [`PEDIDO DE TOALHAS;${rotuloPeriodo(relDatasSelecionadas)}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
+  const lines = [`PEDIDO DE TOALHAS;${rotuloPeriodo(relRange)}`, `Preco unitario (rolo 100un);${toBRNum(preco)}`, '', 'UNIDADE;QUANTIDADE_ROLOS;VALOR_RS'];
   toalhas.forEach(r => lines.push([r.unidade, r.qtd, toBRNum(r.total)].join(';')));
   lines.push('');
   lines.push(`Total de toalhas=;${totalQtd}`);
@@ -2670,8 +2605,8 @@ function valorItemBanho(it){
   return Number(it.quantidade||0) * (cat ? Number(cat.preco||0) : 0);
 }
 
-function pedidoNoFiltroDeDatas(pedido, datasSelecionadas){
-  return datasSelecionadas.size === 0 || datasSelecionadas.has(dataAprovacaoISO(pedido.dataAprovacao));
+function pedidoNoFiltroDeDatas(pedido, range){
+  return rangeVazio(range) || dataNoRange(dataAprovacaoISO(pedido.dataAprovacao), range);
 }
 
 function computeGastoBanhoPorUnidade(datasSelecionadas){
@@ -2683,7 +2618,7 @@ function computeGastoBanhoPorUnidade(datasSelecionadas){
 }
 const TOALHA_PRODUTO_NOME = 'Rolo de toalha descartável (100UNIDADES)';
 // Compartilhada com a tela de Exportar para o fornecedor — cada uma passa
-// seu próprio filtro de datas (exDatasSelecionadas / relDatasSelecionadas).
+// seu próprio filtro de datas (exRange / relRange).
 function computeToalhasPorUnidade(datasSelecionadas){
   const cat = findProdutoBanho(TOALHA_PRODUTO_NOME);
   const preco = cat ? Number(cat.preco||0) : 0;
@@ -2696,10 +2631,9 @@ function computeToalhasPorUnidade(datasSelecionadas){
 }
 
 function renderRelatorios(){
-  renderDiaChipsRelatorios();
-  const semPedidoTexto = relDatasSelecionadas.size ? 'nessas datas' : 'ainda';
+  const semPedidoTexto = !rangeVazio(relRange) ? 'nessas datas' : 'ainda';
 
-  const banho = computeGastoBanhoPorUnidade(relDatasSelecionadas);
+  const banho = computeGastoBanhoPorUnidade(relRange);
   const totalBanho = banho.reduce((s,r)=>s+r.total, 0);
   document.getElementById('rel-banho-total').textContent = fmtBRL(totalBanho);
   const tbBanho = document.querySelector('#rel-banho-tabela tbody');
@@ -2708,7 +2642,7 @@ function renderRelatorios(){
       + `<tr style="font-weight:600;"><td>Total (todas as unidades)</td><td class="num mono">${fmtBRL(totalBanho)}</td></tr>`
     : `<tr><td colspan="2"><div class="empty">Nenhum pedido de Banho &amp; Tosa aprovado ${semPedidoTexto}.</div></td></tr>`;
 
-  const toalhas = computeToalhasPorUnidade(relDatasSelecionadas);
+  const toalhas = computeToalhasPorUnidade(relRange);
   const totalToalhasQtd = toalhas.reduce((s,r)=>s+r.qtd, 0);
   const totalToalhasRs = toalhas.reduce((s,r)=>s+r.total, 0);
   document.getElementById('rel-toalhas-total-qtd').textContent = totalToalhasQtd;
