@@ -3450,6 +3450,11 @@ const PRODUTOS_EXCLUIDOS_COMPARATIVO = new Set([
 // tela os serviços que não são de banho e tosa, pra não misturar com o
 // que interessa pro consumo de produto. Classificado por nome de serviço
 // (não muda o dado salvo, só o que aparece nessa tela).
+// "Leva e Tráz"/"Somente Levar ou Trazer" (todas as faixas de km e a de taxi
+// dog) e "Aplicação de Hidratação Externo" saíram daqui em 17/11/2026: um
+// comparativo contra a API da TecPet mostrou que a própria plataforma
+// classifica esses atendimentos como segmento PET_SHOP (banho e tosa), não
+// CLINIC — o painel é só de banho e tosa, então eles entram como tal.
 const SERVICOS_SETOR_CLINICO = new Set([
   'Abdominocentese', 'Acupuntura - Pacote de 10 Sessões', 'Acupuntura - Pacote de 5 Sessões',
   'Alt', 'Anestesia Odonto de 0 a 10 kgs', 'Análise De Líquidos Cavitários (Efusões)',
@@ -3460,7 +3465,7 @@ const SERVICOS_SETOR_CLINICO = new Set([
   'Aplicação Vacina Quíntupla Felina V5', 'Aplicação Vacina Raiva', 'Aplicação de Amoxilina',
   'Aplicação de Buscopan Composto', 'Aplicação de Cerenia/Maropitant de 11 a 15 Kg',
   'Aplicação de Dexametasona', 'Aplicação de Dipirona', 'Aplicação de Furosemida',
-  'Aplicação de Hidratação Externo', 'Aplicação de Librela de 0 a 10 kg - Librela 5 mg',
+  'Aplicação de Librela de 0 a 10 kg - Librela 5 mg',
   'Aplicação de Meloxicam', 'Aplicação de Metadona', 'Aplicação de Midazolam',
   'Aplicação de Ondansetrona', 'Aplicação de Outros Medicamentos', 'Aplicação de Solensia',
   'Ast', 'Avaliação Cirúrgica', 'Bravecto 365 Injetável de 01 a 05 kg',
@@ -3479,8 +3484,7 @@ const SERVICOS_SETOR_CLINICO = new Set([
   'Fosfatase Alcalina', 'Frutosamina', 'Gama Gt (Ggt) Sérico', 'Glicemia fita consultório',
   'Histopatológico - 1 Sítio - Sem Margem',
   'Leva e Trás Tomografia Tomvs (Transferencia entre Animaniacs x Tomvs)',
-  'Leva e Tráz (1 a 3 Km)', 'Leva e Tráz (3 a 6 Km)', 'Leva e Tráz (acima 6 Km)',
-  'Leva e Tráz (externo)', 'Leva e Tráz (taxi dog cortesia)', 'Micológico Direto',
+  'Micológico Direto',
   'Nodulectomia P/Exérese de Tumor (até 3 cm)', 'Ozônio', 'Pcr Chlamydophila Felis - Felino',
   'Pcr Felv - Dna Proviral (Virus Da Leucemia Felina) - Felino', 'Pcr Giardia Spp.',
   'Perfil Canino Wevets Completo (Hg, Ur, Cr, Alt, Fa, Alb, Trigl, Col, Na, K, Ca, P, Glic) B2B',
@@ -3504,7 +3508,7 @@ const SERVICOS_SETOR_CLINICO = new Set([
   'Retorno Clínico NAVE Planalto Paulista', 'Retorno Clínico NAVE SJC',
   'Retorno Clínico NAVE São Vicente', 'Retorno Clínico NAVE Tucuruvi',
   'Retorno Clínico NAVE Vila Prudente', 'Retorno Especialista - Ortopedia (em até 30 dias da consulta)',
-  'Sessão de Acupuntura', 'Somente Levar ou Trazer (1 a 3 Km)', 'Somente Levar ou Trazer (3 a 6 Km)',
+  'Sessão de Acupuntura',
   'Sorologia (Imunocromatografia) Fiv (Igg)/Felv (Ag)', 'Sorologia Fiv / Felv INTERNO NAVE',
   'Supressão Com Dexametasona - Dose Baixa - (2) Dosagens (Rie)',
   'Teste de Fluoresceína + Teste de Jones (Bilateral)',
