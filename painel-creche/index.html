@@ -47,12 +47,25 @@
   .cz-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: 8px 0; }
   .cz-delta { font-size: var(--cds-font-size-caption); }
   #dash-root { --cz-c1: var(--cds-chart-series-1, #2a78d6); --cz-c2: var(--cds-chart-series-2, #c8551e); --cz-c3: var(--cds-chart-muted, #9aa); }
-  @media print { .cz-tablewrap.cz-tall { max-height: none; overflow: visible; } .cz-nav { display: none; } }
+  .cz-tabs { display: flex; gap: var(--cds-gap-xs); border-bottom: 1px solid var(--color-border-line); flex-wrap: wrap; }
+  .cz-tabs button { font: inherit; font-size: var(--cds-font-size-body); background: none; border: 0; border-bottom: 2px solid transparent; color: var(--color-fg-muted); padding: 8px 12px; cursor: pointer; margin-bottom: -1px; }
+  .cz-tabs button[aria-selected="true"] { color: var(--color-fg); border-bottom-color: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+  .cz-tabs button:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+  .cz-panel { display: flex; flex-direction: column; gap: var(--cds-gap-xl); }
+  @media print { .cz-tablewrap.cz-tall { max-height: none; overflow: visible; } .cz-nav, .cz-tabs { display: none; } #freelancers { break-before: page; } }
 </style>
 
 <div class="cz">
   <header class="cz-head" id="topo">
     <h1>Creche &amp; Hotel · Nave Tatuapé</h1>
+    <div class="cz-tabs" role="tablist" aria-label="Abas do painel">
+      <button type="button" role="tab" id="tab-operacao" aria-controls="operacao" aria-selected="true" data-tab="operacao">Creche &amp; Hotel</button>
+      <button type="button" role="tab" id="tab-freelancers" aria-controls="freelancers" aria-selected="false" data-tab="freelancers" tabindex="-1">Freelancers do hotel</button>
+    </div>
+  </header>
+
+  <section class="cz-panel" id="operacao" role="tabpanel" aria-labelledby="tab-operacao">
+  <div class="cz-head">
     <p class="cz-lede" data-read lang="pt-BR">Hoje há <b data-draw="t-hotel" data-source="resumo" data-field="hotelHoje" data-row="0">—</b> pets no hotel e <b data-draw="t-creche" data-source="resumo" data-field="crecheHoje" data-row="0">—</b> na creche. Nos próximos 7 dias são <b data-draw="t-noites" data-source="resumo" data-field="noites7" data-row="0">—</b> pet-noites de hotel. Há <b data-draw="t-vencqtd" data-source="resumo" data-field="vencidoQtd" data-row="0">—</b> faturas vencidas, somando <b data-draw="t-vencval" data-source="resumo" data-field="vencidoValor" data-row="0">—</b>, e mais <b data-draw="t-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</b> a vencer, a maior parte de estadias futuras já faturadas.</p>
     <nav class="cz-nav" aria-label="Seções">
       <a href="#hotel">Hotel e free-lancer</a>
@@ -61,7 +74,7 @@
       <a href="#abertas">Faturas em aberto</a>
       <a href="#clientes">Clientes</a>
     </nav>
-  </header>
+  </div>
 
   <section class="cz-kpis" id="numeros" aria-label="Números principais">
     <div class="cz-kpi" id="k-hotel"><span class="cz-l">No hotel hoje</span><span class="cz-n" data-draw="k-hotel" data-source="resumo" data-field="hotelHoje" data-row="0">—</span><span class="cz-l">pets em diária 24h</span></div>
@@ -192,6 +205,58 @@
         <table data-source="clientes" data-row-key="clienteId">
           <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pets">Pets</th><th class="cz-num" data-field="diasCreche">Creche</th><th class="cz-num" data-field="noitesHotel">Hotel</th><th class="cz-num" data-field="mediaMes">Por mês</th><th data-field="ultima">Última</th><th class="cz-num">Dias sem vir</th><th data-field="proxima">Próxima</th><th class="cz-num" data-field="faturado">Faturado</th><th class="cz-num" data-field="aberto">Em aberto</th></tr></thead>
           <tbody data-draw="tb-clientes"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  </section>
+
+  <section class="cz-panel" id="freelancers" role="tabpanel" aria-labelledby="tab-freelancers" hidden>
+    <div class="cz-head">
+      <p class="cz-lede" data-read lang="pt-BR">Em <span data-draw="f-ano">—</span> foram <b data-draw="f-total" data-source="freelas_resumo" data-field="total" data-row="0">—</b> com freelancers do hotel, em média <b data-draw="f-media" data-source="freelas_resumo" data-field="mediaMes" data-row="0">—</b> por mês fechado. Cada noite de pet no hotel custou <b data-draw="f-noite" data-source="freelas_resumo" data-field="porNoite" data-row="0">—</b> em freelancers.</p>
+      <p class="cz-muted">Soma das planilhas de RPA (unidade "Hotel") e Free Colaborador (setor "Hotel") do Drive, atualizada toda quarta-feira.</p>
+    </div>
+
+    <section class="cz-kpis" id="f-numeros" aria-label="Freelancers em números">
+      <div class="cz-kpi" id="fk-total"><span class="cz-l">Gasto no ano</span><span class="cz-n" data-draw="fk-total" data-source="freelas_resumo" data-field="total" data-row="0">—</span><span class="cz-l"><span data-draw="fk-lanc" data-source="freelas_resumo" data-field="lancamentos" data-row="0">—</span> lançamentos</span></div>
+      <div class="cz-kpi" id="fk-mes"><span class="cz-l">Mês atual até agora</span><span class="cz-n" data-draw="fk-mes" data-source="freelas_resumo" data-field="mesAtual" data-row="0">—</span><span class="cz-l">média dos meses fechados: <span data-draw="fk-media" data-source="freelas_resumo" data-field="mediaMes" data-row="0">—</span></span></div>
+      <div class="cz-kpi" id="fk-noite"><span class="cz-l">Custo por noite de hotel</span><span class="cz-n" data-draw="fk-noite" data-source="freelas_resumo" data-field="porNoite" data-row="0">—</span><span class="cz-l"><span data-draw="fk-noites" data-source="freelas_resumo" data-field="noites" data-row="0">—</span> pet-noites no ano</span></div>
+      <div class="cz-kpi" id="fk-fat"><span class="cz-l">Sobre o faturado do hotel</span><span class="cz-n" data-draw="fk-fat" data-source="freelas_resumo" data-field="sobreFaturado" data-row="0">—</span><span class="cz-l">faturado: <span data-draw="fk-fatv" data-source="freelas_resumo" data-field="faturadoHotel" data-row="0">—</span></span></div>
+    </section>
+
+    <div class="cz-card" id="f-mensal">
+      <h3>Gasto com freelancers do hotel por mês</h3>
+      <div class="cz-legend"><span><i class="cz-sw1"></i>RPA</span><span><i class="cz-sw2"></i>Free Colaborador</span></div>
+      <div class="cz-chart" data-draw="ch-freelas" data-source="freelas_mes"></div>
+    </div>
+
+    <div class="cz-grid2">
+      <div class="cz-card" id="f-tabela-mes">
+        <h3>Mês a mês</h3>
+        <div class="cz-tablewrap">
+          <table data-source="freelas_mes" data-row-key="mes">
+            <thead><tr><th data-field="mes">Mês</th><th class="cz-num" data-field="rpa">RPA</th><th class="cz-num" data-field="free">Free</th><th class="cz-num" data-field="total">Total</th><th class="cz-num" data-field="noites">Pet-noites</th><th class="cz-num" data-field="porNoite">Por noite</th></tr></thead>
+            <tbody data-draw="tb-freelas-mes"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="cz-card" id="f-pessoas">
+        <h3>Por profissional</h3>
+        <div class="cz-tablewrap cz-tall">
+          <table data-source="freelas_pessoa" data-row-key="profissional">
+            <thead><tr><th data-field="profissional">Profissional</th><th class="cz-num" data-field="lancamentos">Lançamentos</th><th class="cz-num" data-field="total">Total</th><th data-field="ultimoMes">Último mês</th></tr></thead>
+            <tbody data-draw="tb-freelas-pessoa"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="cz-card" id="f-lancamentos">
+      <h3>Todos os lançamentos</h3>
+      <div class="cz-tablewrap cz-tall">
+        <table data-source="freelas" data-row-key="id">
+          <thead><tr><th data-field="mes">Mês</th><th data-field="planilha">Planilha</th><th data-field="profissional">Profissional</th><th class="cz-num" data-field="valor">Valor</th><th data-field="quando">Datas</th><th data-field="detalhe">Observação</th></tr></thead>
+          <tbody data-draw="tb-freelas"></tbody>
         </table>
       </div>
     </div>
@@ -569,4 +634,154 @@
   });
   document.querySelectorAll('#cz-filtro').forEach((el) => el.addEventListener('change', () => dash.draw('tb-clientes')));
   document.querySelectorAll('#cz-busca').forEach((el) => el.addEventListener('input', () => dash.draw('tb-clientes')));
+</script>
+
+<script>
+  // ---------- freelancers do hotel ----------
+  dash.calc('freelas_mes', {
+    inputs: ['freelas', 'agenda'],
+    title: 'Freelancers do hotel por mês',
+    description: 'Gasto com freelancers do hotel por mês (RPA e Free Colaborador) e pet-noites de hotel no mesmo mês, até hoje.',
+    fn: (freelas, agenda) => {
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const m = new Map();
+      for (const f of freelas) {
+        const r = m.get(f.mes) || { mes: f.mes, rpa: 0, free: 0, total: 0, noites: 0, porNoite: null };
+        if (f.planilha === 'RPA') r.rpa += +f.valor; else r.free += +f.valor;
+        r.total += +f.valor;
+        m.set(f.mes, r);
+      }
+      for (const a of agenda) {
+        if (a.cancelado || a.tipo !== 'Hotel' || a.data > hoje) continue;
+        const r = m.get(a.data.slice(0, 7));
+        if (r) r.noites++;
+      }
+      return [...m.values()].sort((a, b) => a.mes.localeCompare(b.mes)).map((r) => ({
+        ...r, rpa: Math.round(r.rpa * 100) / 100, free: Math.round(r.free * 100) / 100, total: Math.round(r.total * 100) / 100,
+        porNoite: r.noites ? Math.round((r.total / r.noites) * 100) / 100 : null,
+      }));
+    },
+  });
+
+  dash.calc('freelas_resumo', {
+    inputs: ['freelas', 'agenda', 'faturas'],
+    title: 'Freelancers do hotel: resumo',
+    description: 'Total do ano, média dos meses fechados, mês atual, custo por pet-noite e peso sobre o faturado do hotel.',
+    fn: (freelas, agenda, faturas) => {
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const ano = hoje.slice(0, 4), mes = hoje.slice(0, 7);
+      const doAno = freelas.filter((f) => f.mes.slice(0, 4) === ano);
+      const total = doAno.reduce((s, f) => s + +f.valor, 0);
+      const porMes = new Map();
+      for (const f of doAno) porMes.set(f.mes, (porMes.get(f.mes) || 0) + +f.valor);
+      const fechados = [...porMes].filter(([m]) => m < mes);
+      const noites = agenda.filter((a) => !a.cancelado && a.tipo === 'Hotel' && a.data.slice(0, 4) === ano && a.data <= hoje).length;
+      const faturadoHotel = faturas.filter((f) => f.valida && f.tipo === 'Hotel' && f.mes.slice(0, 4) === ano && f.criada <= hoje).reduce((s, f) => s + +f.total, 0);
+      return [{
+        total: Math.round(total * 100) / 100,
+        lancamentos: doAno.length,
+        mediaMes: fechados.length ? Math.round((fechados.reduce((s, [, v]) => s + v, 0) / fechados.length) * 100) / 100 : null,
+        mesAtual: Math.round((porMes.get(mes) || 0) * 100) / 100,
+        noites,
+        porNoite: noites ? Math.round((total / noites) * 100) / 100 : null,
+        faturadoHotel: Math.round(faturadoHotel * 100) / 100,
+        sobreFaturado: faturadoHotel ? Math.round((total / faturadoHotel) * 1000) / 1000 : null,
+      }];
+    },
+  });
+
+  dash.calc('freelas_pessoa', {
+    inputs: ['freelas'],
+    title: 'Freelancers do hotel por profissional',
+    description: 'Lançamentos e total pago a cada profissional no setor hotel, somando as duas planilhas.',
+    fn: (freelas) => {
+      const m = new Map();
+      for (const f of freelas) {
+        const k = f.profissional.split(' ')[0].toLowerCase() + ' ' + (f.profissional.split(' ')[1] || '').toLowerCase().slice(0, 3);
+        const r = m.get(k) || { profissional: f.profissional, lancamentos: 0, total: 0, ultimoMes: '' };
+        if (f.profissional.length > r.profissional.length) r.profissional = f.profissional;
+        r.lancamentos++; r.total += +f.valor; if (f.mes > r.ultimoMes) r.ultimoMes = f.mes;
+        m.set(k, r);
+      }
+      return [...m.values()].map((r) => ({ ...r, total: Math.round(r.total * 100) / 100 })).sort((a, b) => b.total - a.total);
+    },
+  });
+
+  const brl0 = (v) => cz.brl.format(v);
+  const brlc = (v) => cz.brl2.format(v);
+  dash.draw('f-ano', (el) => { el.textContent = cz.hoje().slice(0, 4); });
+  cz.kpi('f-total', 'freelas_resumo', 'total', brl0);
+  cz.kpi('f-media', 'freelas_resumo', 'mediaMes', brl0);
+  cz.kpi('f-noite', 'freelas_resumo', 'porNoite', brlc);
+  cz.kpi('fk-total', 'freelas_resumo', 'total', brl0);
+  cz.kpi('fk-lanc', 'freelas_resumo', 'lancamentos', (v) => cz.int.format(v));
+  cz.kpi('fk-mes', 'freelas_resumo', 'mesAtual', brl0);
+  cz.kpi('fk-media', 'freelas_resumo', 'mediaMes', brl0);
+  cz.kpi('fk-noite', 'freelas_resumo', 'porNoite', brlc);
+  cz.kpi('fk-noites', 'freelas_resumo', 'noites', (v) => cz.int.format(v));
+  cz.kpi('fk-fat', 'freelas_resumo', 'sobreFaturado', (v) => String(Math.round(v * 1000) / 10).replace('.', ',') + '%');
+  cz.kpi('fk-fatv', 'freelas_resumo', 'faturadoHotel', brl0);
+
+  dash.draw('ch-freelas', (el) => {
+    const s = dash.data('freelas_mes');
+    if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
+    cz.barras(el, s.data, {
+      x: 'mes', label: cz.mesCurto, fmt: brlc, tick: (v) => (v >= 1000 ? 'R$ ' + cz.int.format(Math.round(v / 100) / 10) + ' mil' : brl0(v)),
+      aria: 'Gasto com freelancers do hotel por mês, RPA e Free Colaborador',
+      series: [{ key: 'rpa', label: 'RPA', color: 'var(--cz-c1)' }, { key: 'free', label: 'Free Colaborador', color: 'var(--cz-c2)' }],
+      tipExtra: (r) => ['Total: ' + brlc(r.total), r.porNoite != null ? `Por pet-noite: ${brlc(r.porNoite)} (${r.noites} noites)` : 'Sem noites de hotel'],
+    });
+  });
+
+  dash.draw('tb-freelas-mes', (tb) => {
+    const s = dash.data('freelas_mes');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    if (!s.data.length) return cz.vazio(tb, 6, 'Nenhum lançamento de hotel no ano.');
+    for (const r of s.data) cz.row(tb, [cz.mesCurto(r.mes), { v: brlc(r.rpa), cls: 'cz-num' }, { v: brlc(r.free), cls: 'cz-num' }, { v: brlc(r.total), cls: 'cz-num' }, { v: r.noites, cls: 'cz-num' }, { v: r.porNoite != null ? brlc(r.porNoite) : '—', cls: 'cz-num' }], r.mes);
+  });
+
+  dash.draw('tb-freelas-pessoa', (tb) => {
+    const s = dash.data('freelas_pessoa');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    if (!s.data.length) return cz.vazio(tb, 4, 'Nenhum lançamento de hotel no ano.');
+    for (const r of s.data) cz.row(tb, [r.profissional, { v: r.lancamentos, cls: 'cz-num' }, { v: brlc(r.total), cls: 'cz-num' }, cz.mesCurto(r.ultimoMes)], r.profissional);
+  });
+
+  dash.draw('tb-freelas', (tb) => {
+    const s = dash.data('freelas');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    if (!s.data.length) return cz.vazio(tb, 6, 'Nenhum lançamento de hotel no ano.');
+    const rs = [...s.data].sort((a, b) => b.mes.localeCompare(a.mes) || a.profissional.localeCompare(b.profissional));
+    for (const r of rs) cz.row(tb, [{ v: cz.mesCurto(r.mes), cls: 'cz-nw' }, r.planilha, r.profissional, { v: brlc(r.valor), cls: 'cz-num' }, r.quando ? (/^\d{4}-\d{2}-\d{2}$/.test(r.quando) ? 'semana de ' + cz.data(r.quando) : r.quando) : '—', r.detalhe], r.id);
+  });
+
+  // ---------- abas ----------
+  (() => {
+    const abrir = (id, link) => {
+      document.querySelectorAll('.cz-tabs [data-tab]').forEach((b) => {
+        const on = b.dataset.tab === id;
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+      });
+      document.querySelectorAll('.cz-panel').forEach((p) => { p.hidden = p.id !== id; });
+      if (link) dash.setLink(id);
+    };
+    document.querySelectorAll('.cz-tabs [data-tab]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.tab, true)));
+    document.querySelectorAll('.cz-tabs').forEach((t) => t.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      const bs = [...t.querySelectorAll('[data-tab]')];
+      const i = bs.findIndex((b) => b.getAttribute('aria-selected') === 'true');
+      const n = bs[(i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length];
+      abrir(n.dataset.tab, true); n.focus();
+    }));
+    const h = (location.hash || '').slice(1);
+    const alvo = h && document.getElementById(h);
+    if (alvo) { const p = alvo.closest('.cz-panel'); if (p) abrir(p.id, false); }
+    let antes = null;
+    window.addEventListener('beforeprint', () => { if (antes) return; antes = [...document.querySelectorAll('.cz-panel')].map((p) => [p, p.hidden]); antes.forEach(([p]) => { p.hidden = false; }); });
+    window.addEventListener('afterprint', () => { if (!antes) return; antes.forEach(([p, h2]) => { p.hidden = h2; }); antes = null; });
+  })();
 </script>
