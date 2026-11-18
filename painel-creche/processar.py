@@ -145,14 +145,21 @@ for p in d["petPlans"]:
         continue
     cur = [c for inv in p["invoices"] if inv.get("current") for c in inv["control"] if c.get("segmentType") in SEG] or ctrl
     qtd = sum(c["quantity"] for c in cur)
-    usadas = sum(c["used"] for c in cur)
+    # O TecPet conta como "usada" toda diária vinculada ao pacote, inclusive as agendadas para o futuro.
+    # Aqui "usadas" são só as que já aconteceram (até hoje), contadas pelos agendamentos deste pacote.
+    vinc = sorted(b["dateIso"] for b in d["bookings"] if b.get("petPlanId") == p["id"] and b["status"] != "REMOVED")
+    usadas = sum(1 for x in vinc if x <= hoje.isoformat())
+    agendadas = sum(1 for x in vinc if x > hoje.isoformat())
     fim = dia_local(p["endDate"])
     inv_cur = next((inv for inv in p["invoices"] if inv.get("current")), p["invoices"][0] if p["invoices"] else {})
     pacs.append({
         "id": str(p["id"]), "pet": p["pet"]["name"], "cliente": nome_cli(p["clientId"]), "telefone": tel_cli(p["clientId"]),
         "plano": p["plan"]["name"], "status": STATUS_PLANO.get(p["status"], p["status"]),
         "inicio": dia_local(p["startDate"]), "fim": fim, "diasParaFim": (dt.date.fromisoformat(fim) - hoje).days,
-        "contratadas": qtd, "usadas": usadas, "restantes": max(0, qtd - usadas),
+        "contratadas": qtd, "usadas": usadas, "agendadas": agendadas, "restantes": max(0, qtd - usadas),
+        "semAgendar": max(0, qtd - usadas - agendadas), "usadasTecpet": sum(c["used"] for c in cur),
+        "ultimaDiaria": max((x for x in vinc if x <= hoje.isoformat()), default=None),
+        "proximaDiaria": min((x for x in vinc if x > hoje.isoformat()), default=None),
         "valor": round(p.get("partialPrice") or p.get("price") or 0, 2),
         "faturaAtual": STATUS_FAT.get(inv_cur.get("status"), inv_cur.get("status") or ""),
         "vencimentoFatura": dia_local(inv_cur.get("dueDate")),

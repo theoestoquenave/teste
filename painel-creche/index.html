@@ -66,7 +66,7 @@
   <section class="cz-kpis" id="numeros" aria-label="Números principais">
     <div class="cz-kpi" id="k-hotel"><span class="cz-l">No hotel hoje</span><span class="cz-n" data-draw="k-hotel" data-source="resumo" data-field="hotelHoje" data-row="0">—</span><span class="cz-l">pets em diária 24h</span></div>
     <div class="cz-kpi" id="k-creche"><span class="cz-l">Na creche hoje</span><span class="cz-n" data-draw="k-creche" data-source="resumo" data-field="crecheHoje" data-row="0">—</span><span class="cz-l">diárias de day care</span></div>
-    <div class="cz-kpi" id="k-pacotes"><span class="cz-l">Pacotes acabando</span><span class="cz-n" data-draw="k-pacotes" data-source="resumo" data-field="pacAlerta" data-row="0">—</span><span class="cz-l">2 diárias ou menos, ou vencendo em 7 dias</span></div>
+    <div class="cz-kpi" id="k-pacotes"><span class="cz-l">Pacotes acabando</span><span class="cz-n" data-draw="k-pacotes" data-source="resumo" data-field="pacAlerta" data-row="0">—</span><span class="cz-l">restam 2 diárias ou menos, ou vence em 7 dias</span></div>
     <div class="cz-kpi" id="k-fatmes"><span class="cz-l">Faturado no mês</span><span class="cz-n" data-draw="k-fatmes" data-source="resumo" data-field="fatMes" data-row="0">—</span><span class="cz-delta" data-draw="k-fatdelta">—</span></div>
     <div class="cz-kpi" id="k-aberto"><span class="cz-l">Vencido sem pagar</span><span class="cz-n" data-draw="k-vencido" data-source="resumo" data-field="vencidoValor" data-row="0">—</span><span class="cz-l">a vencer: <span data-draw="k-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</span></span></div>
     <div class="cz-kpi" id="k-ano"><span class="cz-l">Faturado no ano</span><span class="cz-n" data-draw="k-ano" data-source="resumo" data-field="faturadoAno" data-row="0">—</span><span class="cz-l">recebido: <span data-draw="k-recebido" data-source="resumo" data-field="recebidoAno" data-row="0">—</span></span></div>
@@ -107,12 +107,12 @@
   <section class="cz-sec" id="creche">
     <header>
       <h2>Pacotes de day care</h2>
-      <p class="cz-muted">Pacote mais recente de cada pet. Acaba quando zera as diárias ou chega a data de fim, o que vier primeiro.</p>
+      <p class="cz-muted">Pacote mais recente de cada pet. Usadas são as diárias que já aconteceram desde a renovação; agendadas são as marcadas para os próximos dias. O pacote acaba quando as diárias acabam ou chega a data de fim, o que vier primeiro.</p>
     </header>
     <div class="cz-card" id="pacotes">
       <div class="cz-tablewrap">
         <table data-source="pacotes" data-row-key="id">
-          <thead><tr><th data-field="pet">Pet</th><th data-field="cliente">Tutor</th><th data-field="telefone">Telefone</th><th data-field="plano">Plano</th><th>Diárias restantes</th><th data-field="fim">Fim</th><th class="cz-num">Faltam</th><th data-field="faturaAtual">Fatura</th><th>Aviso</th></tr></thead>
+          <thead><tr><th data-field="pet">Pet</th><th data-field="cliente">Tutor</th><th data-field="telefone">Telefone</th><th data-field="plano">Plano</th><th data-field="inicio">Renovado em</th><th>Usadas</th><th class="cz-num" data-field="agendadas">Agendadas</th><th class="cz-num" data-field="semAgendar">Sem agendar</th><th data-field="fim">Fim</th><th class="cz-num">Faltam</th><th data-field="faturaAtual">Fatura</th><th>Aviso</th></tr></thead>
           <tbody data-draw="tb-pacotes"></tbody>
         </table>
       </div>
@@ -453,18 +453,19 @@
     if (s.status !== 'ok') return;
     const rs = s.data.filter((p) => p.vigente && p.atual).map((p) => ({ ...p, faltam: cz.diasAte(p.fim) }))
       .sort((a, b) => a.restantes - b.restantes || a.faltam - b.faltam);
-    if (!rs.length) return cz.vazio(tb, 9, 'Nenhum pacote de creche vigente.');
+    if (!rs.length) return cz.vazio(tb, 12, 'Nenhum pacote de creche vigente.');
     for (const p of rs) {
       const bar = document.createElement('span');
       const b = document.createElement('span'); b.className = 'cz-bar';
-      const i = document.createElement('i'); i.style.width = (p.contratadas ? (p.restantes / p.contratadas) * 100 : 0) + '%'; b.appendChild(i);
-      bar.append(b, `${p.restantes} de ${p.contratadas}`);
+      const i = document.createElement('i'); i.style.width = (p.contratadas ? (p.usadas / p.contratadas) * 100 : 0) + '%'; b.appendChild(i);
+      bar.append(b, `${p.usadas} de ${p.contratadas}`);
       let aviso;
       if (p.faturaAtual === 'Vencida' || p.faturaAtual === 'Em aberto') aviso = cz.pill('Cobrar fatura', 'cz-bad');
       else if (p.restantes === 0) aviso = cz.pill('Diárias esgotadas', 'cz-bad');
       else if (p.restantes <= 2 || p.faltam <= 7) aviso = cz.pill('Renovar em breve', 'cz-warn');
+      else if (p.semAgendar === 0) aviso = cz.pill('Todas agendadas', 'cz-neu');
       else aviso = cz.pill('Em dia', 'cz-ok');
-      cz.row(tb, [p.pet, p.cliente, { v: p.telefone, cls: 'cz-nw' }, p.plano.replace('Pacote Daycare Mensal ', ''), { v: bar, cls: 'cz-nw' }, { v: cz.data(p.fim), cls: 'cz-nw' }, { v: p.faltam + ' dias', cls: 'cz-num' }, p.faturaAtual, aviso], p.id);
+      cz.row(tb, [p.pet, p.cliente, { v: p.telefone, cls: 'cz-nw' }, p.plano.replace('Pacote Daycare Mensal ', ''), { v: cz.data(p.inicio), cls: 'cz-nw' }, { v: bar, cls: 'cz-nw' }, { v: p.agendadas, cls: 'cz-num' }, { v: p.semAgendar, cls: 'cz-num' }, { v: cz.data(p.fim), cls: 'cz-nw' }, { v: p.faltam + ' dias', cls: 'cz-num' }, p.faturaAtual, aviso], p.id);
     }
   });
 
