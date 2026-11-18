@@ -1,2 +1,4 @@
 dados/
 *.json
+*.xlsx
+*.csv
