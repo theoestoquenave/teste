@@ -1,0 +1,571 @@
+<meta name="dash-one-writer">
+<style>
+  .cz { display: flex; flex-direction: column; gap: var(--cds-gap-xl); font-family: var(--font-anthropic-sans); color: var(--color-fg); }
+  .cz h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .cz h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; text-wrap: balance; }
+  .cz h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .cz p { margin: 0; }
+  .cz-muted { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .cz-head { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+  .cz-lede { font-size: var(--cds-font-size-body); max-width: 70ch; line-height: 1.5; }
+  .cz-nav { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); }
+  .cz-nav a { text-decoration: none; color: var(--color-fg); border: 1px solid var(--color-border-line); border-radius: 999px; padding: 4px 12px; font-size: var(--cds-font-size-caption); }
+  .cz-nav a:hover, .cz-nav a:focus-visible { background: var(--color-panel); }
+  .cz-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--cds-gap-md); }
+  .cz-kpi { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .cz-kpi .cz-n { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .cz-kpi .cz-l { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .cz-sec { display: flex; flex-direction: column; gap: var(--cds-gap-md); scroll-margin-top: 16px; }
+  .cz-sec > header { display: flex; flex-direction: column; gap: 4px; }
+  .cz-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--cds-gap-lg); }
+  .cz-grid2 > * { min-width: 0; }
+  .cz-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .cz-chart { position: relative; min-height: 220px; width: 100%; }
+  .cz-chart svg { display: block; overflow: visible; }
+  .cz-chart text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+  .cz-chart .domain { stroke: var(--cds-chart-axis); }
+  .cz-chart .tick line { stroke: var(--cds-chart-grid); }
+  .cz-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: 6px 10px; font-size: var(--cds-font-size-caption); color: var(--color-fg); white-space: nowrap; z-index: 5; }
+  .cz-tip b { font-weight: var(--cds-font-weight-medium); }
+  .cz-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .cz-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .cz-legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .cz-sw1 { background: var(--cz-c1); } .cz-sw2 { background: var(--cz-c2); } .cz-sw3 { background: var(--cz-c3); }
+  .cz-tablewrap { overflow-x: auto; max-width: 100%; }
+  .cz-tablewrap.cz-tall { max-height: 520px; overflow-y: auto; }
+  .cz table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .cz th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; position: sticky; top: 0; background: var(--color-panel); }
+  .cz td { padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); vertical-align: top; }
+  .cz td.cz-num, .cz th.cz-num { text-align: right; white-space: nowrap; }
+  .cz td.cz-nw { white-space: nowrap; }
+  .cz-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: var(--cds-font-size-caption); white-space: nowrap; border: 1px solid currentColor; }
+  .cz-ok { color: var(--color-ok); } .cz-warn { color: var(--color-warn); } .cz-bad { color: var(--color-bad); } .cz-neu { color: var(--color-fg-muted); }
+  .cz-bar { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: var(--cds-chart-grid); vertical-align: middle; margin-right: 6px; overflow: hidden; }
+  .cz-bar > i { display: block; height: 100%; background: var(--cz-c1); }
+  .cz-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; }
+  .cz-tools input { font: inherit; font-size: var(--cds-font-size-caption); padding: 6px 10px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); min-width: 0; flex: 1 1 180px; max-width: 320px; }
+  .cz-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: 8px 0; }
+  .cz-delta { font-size: var(--cds-font-size-caption); }
+  #dash-root { --cz-c1: var(--cds-chart-series-1, #2a78d6); --cz-c2: var(--cds-chart-series-2, #c8551e); --cz-c3: var(--cds-chart-muted, #9aa); }
+  @media print { .cz-tablewrap.cz-tall { max-height: none; overflow: visible; } .cz-nav { display: none; } }
+</style>
+
+<div class="cz">
+  <header class="cz-head" id="topo">
+    <h1>Creche &amp; Hotel · Nave Tatuapé</h1>
+    <p class="cz-lede" data-read lang="pt-BR">Hoje há <b data-draw="t-hotel" data-source="resumo" data-field="hotelHoje" data-row="0">—</b> pets no hotel e <b data-draw="t-creche" data-source="resumo" data-field="crecheHoje" data-row="0">—</b> na creche. Nos próximos 7 dias são <b data-draw="t-noites" data-source="resumo" data-field="noites7" data-row="0">—</b> pet-noites de hotel. Há <b data-draw="t-vencqtd" data-source="resumo" data-field="vencidoQtd" data-row="0">—</b> faturas vencidas, somando <b data-draw="t-vencval" data-source="resumo" data-field="vencidoValor" data-row="0">—</b>, e mais <b data-draw="t-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</b> a vencer, a maior parte de estadias futuras já faturadas.</p>
+    <nav class="cz-nav" aria-label="Seções">
+      <a href="#hotel">Hotel e free-lancer</a>
+      <a href="#creche">Pacotes de creche</a>
+      <a href="#financeiro">Faturamento</a>
+      <a href="#abertas">Faturas em aberto</a>
+      <a href="#clientes">Clientes</a>
+    </nav>
+  </header>
+
+  <section class="cz-kpis" id="numeros" aria-label="Números principais">
+    <div class="cz-kpi" id="k-hotel"><span class="cz-l">No hotel hoje</span><span class="cz-n" data-draw="k-hotel" data-source="resumo" data-field="hotelHoje" data-row="0">—</span><span class="cz-l">pets em diária 24h</span></div>
+    <div class="cz-kpi" id="k-creche"><span class="cz-l">Na creche hoje</span><span class="cz-n" data-draw="k-creche" data-source="resumo" data-field="crecheHoje" data-row="0">—</span><span class="cz-l">diárias de day care</span></div>
+    <div class="cz-kpi" id="k-pacotes"><span class="cz-l">Pacotes acabando</span><span class="cz-n" data-draw="k-pacotes" data-source="resumo" data-field="pacAlerta" data-row="0">—</span><span class="cz-l">2 diárias ou menos, ou vencendo em 7 dias</span></div>
+    <div class="cz-kpi" id="k-fatmes"><span class="cz-l">Faturado no mês</span><span class="cz-n" data-draw="k-fatmes" data-source="resumo" data-field="fatMes" data-row="0">—</span><span class="cz-delta" data-draw="k-fatdelta">—</span></div>
+    <div class="cz-kpi" id="k-aberto"><span class="cz-l">Vencido sem pagar</span><span class="cz-n" data-draw="k-vencido" data-source="resumo" data-field="vencidoValor" data-row="0">—</span><span class="cz-l">a vencer: <span data-draw="k-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</span></span></div>
+    <div class="cz-kpi" id="k-ano"><span class="cz-l">Faturado no ano</span><span class="cz-n" data-draw="k-ano" data-source="resumo" data-field="faturadoAno" data-row="0">—</span><span class="cz-l">recebido: <span data-draw="k-recebido" data-source="resumo" data-field="recebidoAno" data-row="0">—</span></span></div>
+  </section>
+
+  <section class="cz-sec" id="hotel">
+    <header>
+      <h2>Hotel: quando chamar o free-lancer</h2>
+      <p class="cz-muted">Cada noite com pelo menos um pet em diária 24h (inclui Diária Gato) nos próximos 30 dias.</p>
+    </header>
+    <div class="cz-grid2">
+      <div class="cz-card" id="ocupacao">
+        <h3>Ocupação dos próximos 30 dias</h3>
+        <div class="cz-legend"><span><i class="cz-sw1"></i>Hotel (pets por noite)</span><span><i class="cz-sw2"></i>Creche (pets por dia)</span></div>
+        <div class="cz-chart" data-draw="ch-ocupacao" data-source="proximos"></div>
+      </div>
+      <div class="cz-card" id="noites-hotel">
+        <h3>Noites com hotel</h3>
+        <div class="cz-tablewrap cz-tall">
+          <table data-source="proximos" data-row-key="data">
+            <thead><tr><th data-field="data">Noite</th><th>Dia</th><th class="cz-num" data-field="hotel">Pets</th><th data-field="petsHotel">Quem</th></tr></thead>
+            <tbody data-draw="tb-noites"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="cz-card" id="estadias">
+      <h3>Hospedados agora e próximas estadias</h3>
+      <div class="cz-tablewrap">
+        <table data-source="estadias" data-row-key="id">
+          <thead><tr><th data-field="pet">Pet</th><th data-field="cliente">Tutor</th><th data-field="telefone">Telefone</th><th data-field="entrada">Entrada</th><th data-field="saida">Saída</th><th class="cz-num" data-field="noites">Noites</th><th data-field="situacao">Situação</th></tr></thead>
+          <tbody data-draw="tb-estadias"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cz-sec" id="creche">
+    <header>
+      <h2>Pacotes de day care</h2>
+      <p class="cz-muted">Pacote mais recente de cada pet. Acaba quando zera as diárias ou chega a data de fim, o que vier primeiro.</p>
+    </header>
+    <div class="cz-card" id="pacotes">
+      <div class="cz-tablewrap">
+        <table data-source="pacotes" data-row-key="id">
+          <thead><tr><th data-field="pet">Pet</th><th data-field="cliente">Tutor</th><th data-field="telefone">Telefone</th><th data-field="plano">Plano</th><th>Diárias restantes</th><th data-field="fim">Fim</th><th class="cz-num">Faltam</th><th data-field="faturaAtual">Fatura</th><th>Aviso</th></tr></thead>
+          <tbody data-draw="tb-pacotes"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="cz-card" id="volume">
+      <h3>Diárias de creche e noites de hotel por mês</h3>
+      <div class="cz-legend"><span><i class="cz-sw2"></i>Diárias de creche</span><span><i class="cz-sw1"></i>Noites de hotel</span></div>
+      <div class="cz-chart" data-draw="ch-volume" data-source="volume"></div>
+    </div>
+  </section>
+
+  <section class="cz-sec" id="financeiro">
+    <header>
+      <h2>Faturamento</h2>
+      <p class="cz-muted">Faturas de creche e hotel pela data de emissão, sem as canceladas.</p>
+    </header>
+    <div class="cz-grid2">
+      <div class="cz-card" id="fat-mensal">
+        <h3>Faturado por mês</h3>
+        <div class="cz-legend"><span><i class="cz-sw1"></i>Hotel</span><span><i class="cz-sw2"></i>Creche</span><span><i class="cz-sw3"></i>Outros</span></div>
+        <div class="cz-chart" data-draw="ch-mensal" data-source="mensal"></div>
+      </div>
+      <div class="cz-card" id="pago-aberto">
+        <h3>Pago e em aberto por mês</h3>
+        <div class="cz-legend"><span><i class="cz-sw1"></i>Pago</span><span><i class="cz-sw2"></i>Em aberto</span></div>
+        <div class="cz-chart" data-draw="ch-pagoaberto" data-source="mensal"></div>
+      </div>
+    </div>
+    <div class="cz-card" id="formas">
+      <h3>Recebido no ano por forma de pagamento</h3>
+      <div class="cz-chart" data-draw="ch-formas" data-source="formas" style="min-height:120px"></div>
+    </div>
+  </section>
+
+  <section class="cz-sec" id="abertas">
+    <header>
+      <h2>Faturas em aberto</h2>
+      <p class="cz-muted">Não pagas ou vencidas, da mais atrasada para a mais nova.</p>
+    </header>
+    <div class="cz-card">
+      <div class="cz-tablewrap cz-tall">
+        <table data-source="faturas" data-row-key="id">
+          <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pet">Pet</th><th data-field="tipo">Tipo</th><th data-field="vencimento">Vencimento</th><th class="cz-num">Atraso</th><th class="cz-num" data-field="aberto">Em aberto</th><th data-field="status">Situação</th></tr></thead>
+          <tbody data-draw="tb-abertas"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="cz-sec" id="clientes">
+    <header>
+      <h2>Clientes</h2>
+      <p class="cz-muted"><span data-draw="c-total" data-source="resumo" data-field="clientesAno" data-row="0">—</span> clientes usaram creche ou hotel em 2026, <span data-draw="c-hotel" data-source="resumo" data-field="clientesHotel" data-row="0">—</span> deles o hotel.</p>
+    </header>
+    <div class="cz-card" id="clientes-hotel">
+      <h3>Quem usou o hotel no ano</h3>
+      <div class="cz-tablewrap cz-tall">
+        <table data-source="clientes" data-row-key="clienteId">
+          <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pets">Pets</th><th class="cz-num" data-field="estadiasHotel">Estadias</th><th class="cz-num" data-field="noitesHotel">Noites</th><th data-field="ultima">Última visita</th><th class="cz-num" data-field="faturado">Faturado</th></tr></thead>
+          <tbody data-draw="tb-clihotel"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="cz-card" id="frequencia">
+      <h3>Frequência de todos os clientes</h3>
+      <div class="cz-tools">
+        <select class="dash-select" id="cz-filtro" aria-label="Filtrar clientes">
+          <option value="todos">Todos</option>
+          <option value="sumidos">Sem vir há mais de 30 dias</option>
+          <option value="hotel">Usaram hotel</option>
+          <option value="creche">Só creche</option>
+          <option value="aberto">Com valor em aberto</option>
+        </select>
+        <input type="search" id="cz-busca" placeholder="Buscar cliente ou pet" aria-label="Buscar cliente ou pet">
+      </div>
+      <div class="cz-tablewrap cz-tall">
+        <table data-source="clientes" data-row-key="clienteId">
+          <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pets">Pets</th><th class="cz-num" data-field="diasCreche">Creche</th><th class="cz-num" data-field="noitesHotel">Hotel</th><th class="cz-num" data-field="mediaMes">Por mês</th><th data-field="ultima">Última</th><th class="cz-num">Dias sem vir</th><th data-field="proxima">Próxima</th><th class="cz-num" data-field="faturado">Faturado</th><th class="cz-num" data-field="aberto">Em aberto</th></tr></thead>
+          <tbody data-draw="tb-clientes"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // ---------- cálculos ----------
+  dash.calc('resumo', {
+    inputs: ['agenda', 'pacotes', 'faturas', 'clientes'],
+    title: 'Resumo de hoje',
+    description: 'Números do topo: pets hoje, próximos 7 dias, pacotes acabando, faturado e em aberto.',
+    fn: (agenda, pacotes, faturas, clientes) => {
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const somaDias = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+      const diasAte = (iso) => Math.round((new Date(iso + 'T12:00:00Z') - new Date(hoje + 'T12:00:00Z')) / 864e5);
+      const soma = (rs, k) => Math.round(rs.reduce((s, r) => s + (+r[k] || 0), 0) * 100) / 100;
+      const ativos = agenda.filter((a) => !a.cancelado);
+      const validas = faturas.filter((f) => f.valida);
+      const mes = hoje.slice(0, 7);
+      const ant = new Date(hoje + 'T12:00:00Z'); ant.setUTCMonth(ant.getUTCMonth() - 1);
+      const antDia = ant.toISOString().slice(0, 10);
+      const fatMes = soma(validas.filter((f) => f.mes === mes), 'total');
+      const fatAnt = soma(validas.filter((f) => f.mes === antDia.slice(0, 7) && f.criada <= antDia), 'total');
+      const abertas = validas.filter((f) => f.aberto > 0);
+      return [{
+        hotelHoje: ativos.filter((a) => a.tipo === 'Hotel' && a.data === hoje).length,
+        crecheHoje: ativos.filter((a) => a.tipo === 'Creche' && a.data === hoje).length,
+        noites7: ativos.filter((a) => a.tipo === 'Hotel' && a.data > hoje && a.data <= somaDias(hoje, 7)).length,
+        pacAlerta: pacotes.filter((p) => p.vigente && p.atual && (p.restantes <= 2 || diasAte(p.fim) <= 7)).length,
+        fatMes, fatMesAnteriorMesmoDia: fatAnt,
+        variacao: fatAnt ? fatMes / fatAnt - 1 : null,
+        abertoQtd: abertas.length,
+        abertoValor: soma(abertas, 'aberto'),
+        vencidoQtd: abertas.filter((f) => f.vencimento && f.vencimento < hoje).length,
+        vencidoValor: soma(abertas.filter((f) => f.vencimento && f.vencimento < hoje), 'aberto'),
+        aVencerValor: soma(abertas.filter((f) => !f.vencimento || f.vencimento >= hoje), 'aberto'),
+        faturadoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4)), 'total'),
+        recebidoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4)), 'pago'),
+        clientesAno: clientes.filter((c) => c.visitas > 0).length,
+        clientesHotel: clientes.filter((c) => c.usouHotel).length,
+      }];
+    },
+  });
+
+  dash.calc('proximos', {
+    inputs: ['agenda'],
+    title: 'Próximos 30 dias, por dia',
+    description: 'Pets no hotel (por noite) e na creche em cada dia, de hoje a 30 dias.',
+    fn: (agenda) => {
+      const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+      const dias = [];
+      for (let i = 0; i < 30; i++) { const d = new Date(hoje + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + i); dias.push(d.toISOString().slice(0, 10)); }
+      return dias.map((data) => {
+        const doDia = agenda.filter((a) => !a.cancelado && a.data === data);
+        const hotel = doDia.filter((a) => a.tipo === 'Hotel');
+        const creche = doDia.filter((a) => a.tipo === 'Creche');
+        return { data, hotel: hotel.length, creche: creche.length, petsHotel: hotel.map((a) => a.pet.trim()).join(', '), petsCreche: creche.map((a) => a.pet.trim()).join(', ') };
+      });
+    },
+  });
+
+  dash.calc('volume', {
+    inputs: ['agenda'],
+    title: 'Diárias e noites por mês',
+    description: 'Diárias de creche e noites de hotel não canceladas, de janeiro até o mês atual.',
+    fn: (agenda) => {
+      const mesAtual = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+      const m = new Map();
+      for (const a of agenda) {
+        if (a.cancelado || a.data.slice(0, 7) > mesAtual) continue;
+        const k = a.data.slice(0, 7);
+        const r = m.get(k) || { mes: k, creche: 0, hotel: 0 };
+        if (a.tipo === 'Hotel') r.hotel++; else if (a.tipo === 'Creche') r.creche++;
+        m.set(k, r);
+      }
+      return [...m.values()].sort((a, b) => a.mes.localeCompare(b.mes));
+    },
+  });
+
+  dash.calc('mensal', {
+    inputs: ['faturas'],
+    title: 'Faturamento por mês',
+    description: 'Soma das faturas não canceladas por mês de emissão, separadas em hotel, creche e outros, e quanto já foi pago.',
+    fn: (faturas) => {
+      const m = new Map();
+      for (const f of faturas) {
+        if (!f.valida) continue;
+        const r = m.get(f.mes) || { mes: f.mes, hotel: 0, creche: 0, outros: 0, total: 0, pago: 0, aberto: 0 };
+        const k = f.tipo === 'Hotel' ? 'hotel' : f.tipo === 'Creche' ? 'creche' : 'outros';
+        r[k] += f.total; r.total += f.total; r.pago += f.pago; r.aberto += f.aberto;
+        m.set(f.mes, r);
+      }
+      return [...m.values()].sort((a, b) => a.mes.localeCompare(b.mes)).map((r) => {
+        for (const k of ['hotel', 'creche', 'outros', 'total', 'pago', 'aberto']) r[k] = Math.round(r[k] * 100) / 100;
+        return r;
+      });
+    },
+  });
+
+  dash.calc('formas', {
+    inputs: ['recebimentos'],
+    title: 'Recebido por forma de pagamento',
+    description: 'Pagamentos confirmados de creche e hotel no ano, somados por forma de pagamento.',
+    fn: (recebimentos) => {
+      const m = new Map();
+      for (const r of recebimentos) m.set(r.forma, (m.get(r.forma) || 0) + (+r.valor || 0));
+      return [...m].map(([forma, valor]) => ({ forma, valor: Math.round(valor * 100) / 100 })).sort((a, b) => b.valor - a.valor);
+    },
+  });
+
+  // ---------- utilidades compartilhadas ----------
+  window.cz = (() => {
+    const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    const brl2 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
+    const int = new Intl.NumberFormat('pt-BR');
+    const parse = d3.utcParse('%Y-%m-%d');
+    const dm = d3.utcFormat('%d/%m');
+    const dmy = d3.utcFormat('%d/%m/%Y');
+    const sem = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+    const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    const hoje = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+    const diasAte = (iso) => Math.round((new Date(iso + 'T12:00:00Z') - new Date(hoje() + 'T12:00:00Z')) / 864e5);
+    const data = (iso) => (iso ? dm(parse(iso)) : '—');
+    const dataAno = (iso) => (iso ? dmy(parse(iso)) : '—');
+    const diaSem = (iso) => sem[parse(iso).getUTCDay()];
+    const mesCurto = (ym) => meses[+ym.slice(5, 7) - 1] + (ym.slice(2, 4) !== hoje().slice(2, 4) ? '/' + ym.slice(2, 4) : '');
+    const pill = (txt, cls) => { const s = document.createElement('span'); s.className = 'cz-pill ' + cls; s.textContent = txt; return s; };
+    const row = (tbody, cells, key) => {
+      const tr = document.createElement('tr');
+      if (key != null) tr.dataset.key = key;
+      for (const c of cells) {
+        const td = document.createElement('td');
+        if (c && c.cls) td.className = c.cls;
+        const v = c && typeof c === 'object' && 'v' in c ? c.v : c;
+        if (v instanceof Node) td.appendChild(v); else td.textContent = v == null || v === '' ? '—' : String(v);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    };
+    const vazio = (tbody, cols, txt) => { const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = cols; td.className = 'cz-empty'; td.textContent = txt; tr.appendChild(td); tbody.replaceChildren(tr); };
+    const kpi = (name, src, field, fmt) => dash.draw(name, (el) => {
+      const s = dash.data(src);
+      el.classList.toggle('dash-skeleton', s.status === 'loading');
+      el.textContent = s.status === 'ok' && s.data[0] && s.data[0][field] != null ? fmt(s.data[0][field]) : '—';
+    });
+
+    // barras empilhadas com dica ao passar o mouse
+    const barras = (el, rows, opts) => {
+      const { x, series, fmt, label, height = 220 } = opts;
+      el.replaceChildren();
+      if (!rows.length) { const p = document.createElement('p'); p.className = 'cz-empty'; p.textContent = 'Sem dados no período.'; el.appendChild(p); return; }
+      const W = Math.max(280, el.clientWidth || 600);
+      const max = d3.max(rows, (r) => d3.sum(series, (s) => +r[s.key] || 0)) || 1;
+      const y = d3.scaleLinear().domain([0, max]).nice().range([height - 24, 8]);
+      const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${height}`).attr('role', 'img').attr('aria-label', opts.aria);
+      const yAxis = svg.append('g').call(d3.axisLeft(y).ticks(4).tickFormat(opts.tick || fmt).tickSize(0));
+      let ml = 0; yAxis.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); });
+      ml = Math.ceil(ml) + 10;
+      yAxis.attr('transform', `translate(${ml},0)`).select('.domain').remove();
+      svg.insert('g', ':first-child').attr('transform', `translate(${ml},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(W - ml)).tickFormat('')).call((g) => g.select('.domain').remove());
+      const xb = d3.scaleBand().domain(rows.map((r) => r[x])).range([ml, W]).padding(0.2);
+      const every = Math.ceil(rows.length / Math.max(1, Math.floor((W - ml) / 44)));
+      svg.append('g').attr('transform', `translate(0,${height - 24})`).call(d3.axisBottom(xb).tickSize(0).tickPadding(6).tickFormat((v, i) => (i % every ? '' : label(v)))).select('.domain').remove();
+      const tip = document.createElement('div'); tip.className = 'cz-tip'; tip.hidden = true; el.appendChild(tip);
+      const g = svg.append('g');
+      rows.forEach((r) => {
+        let acc = 0;
+        series.forEach((s) => {
+          const v = +r[s.key] || 0;
+          if (v > 0) g.append('rect').attr('x', xb(r[x])).attr('width', xb.bandwidth()).attr('y', y(acc + v)).attr('height', Math.max(0, y(acc) - y(acc + v))).style('fill', s.color);
+          acc += v;
+        });
+        g.append('rect').attr('x', xb(r[x]) - xb.step() * xb.paddingInner() / 2).attr('width', xb.step()).attr('y', 0).attr('height', height - 24).style('fill', 'transparent')
+          .on('pointerenter pointermove', (ev) => {
+            tip.replaceChildren();
+            const b = document.createElement('b'); b.textContent = opts.tipTitle ? opts.tipTitle(r) : label(r[x]); tip.appendChild(b);
+            series.forEach((s) => { const d = document.createElement('div'); d.textContent = `${s.label}: ${fmt(+r[s.key] || 0)}`; tip.appendChild(d); });
+            if (opts.tipExtra) opts.tipExtra(r).forEach((t) => { const d = document.createElement('div'); d.textContent = t; tip.appendChild(d); });
+            tip.hidden = false;
+            const [px, py] = d3.pointer(ev, el);
+            const tw = tip.offsetWidth;
+            tip.style.left = Math.min(Math.max(0, px + 12), el.clientWidth - tw) + 'px';
+            tip.style.top = Math.max(0, py - 10) + 'px';
+          })
+          .on('pointerleave', () => { tip.hidden = true; });
+      });
+    };
+    return { brl, brl2, int, data, dataAno, diaSem, mesCurto, pill, row, vazio, kpi, barras, hoje, diasAte };
+  })();
+</script>
+
+<script>
+  // ---------- números do topo ----------
+  const n = (v) => cz.int.format(v);
+  cz.kpi('t-hotel', 'resumo', 'hotelHoje', n);
+  cz.kpi('t-creche', 'resumo', 'crecheHoje', n);
+  cz.kpi('t-noites', 'resumo', 'noites7', n);
+  cz.kpi('t-vencqtd', 'resumo', 'vencidoQtd', n);
+  cz.kpi('t-vencval', 'resumo', 'vencidoValor', (v) => cz.brl.format(v));
+  cz.kpi('t-avencer', 'resumo', 'aVencerValor', (v) => cz.brl.format(v));
+  cz.kpi('k-hotel', 'resumo', 'hotelHoje', n);
+  cz.kpi('k-creche', 'resumo', 'crecheHoje', n);
+  cz.kpi('k-pacotes', 'resumo', 'pacAlerta', n);
+  cz.kpi('k-fatmes', 'resumo', 'fatMes', (v) => cz.brl.format(v));
+  cz.kpi('k-avencer', 'resumo', 'aVencerValor', (v) => cz.brl.format(v));
+  cz.kpi('k-vencido', 'resumo', 'vencidoValor', (v) => cz.brl.format(v));
+  cz.kpi('k-ano', 'resumo', 'faturadoAno', (v) => cz.brl.format(v));
+  cz.kpi('k-recebido', 'resumo', 'recebidoAno', (v) => cz.brl.format(v));
+  cz.kpi('c-total', 'resumo', 'clientesAno', n);
+  cz.kpi('c-hotel', 'resumo', 'clientesHotel', n);
+  dash.draw('k-fatdelta', (el) => {
+    const s = dash.data('resumo');
+    const r = s.status === 'ok' ? s.data[0] : null;
+    el.className = 'cz-delta';
+    if (!r || r.variacao == null) { el.textContent = '—'; return; }
+    const pct = Math.round(r.variacao * 100);
+    el.classList.add(pct >= 0 ? 'cz-ok' : 'cz-bad');
+    el.textContent = `${pct >= 0 ? '+' : '−'}${Math.abs(pct)}% contra o mesmo dia do mês passado (${cz.brl.format(r.fatMesAnteriorMesmoDia)})`;
+  });
+
+  // ---------- hotel ----------
+  dash.draw('ch-ocupacao', (el) => {
+    const s = dash.data('proximos');
+    if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
+    cz.barras(el, s.data, {
+      x: 'data', label: (v) => cz.data(v), fmt: (v) => cz.int.format(v), aria: 'Pets no hotel e na creche por dia, próximos 30 dias',
+      series: [{ key: 'hotel', label: 'Hotel', color: 'var(--cz-c1)' }, { key: 'creche', label: 'Creche', color: 'var(--cz-c2)' }],
+      tipTitle: (r) => `${cz.diaSem(r.data)} ${cz.data(r.data)}`,
+      tipExtra: (r) => (r.petsHotel ? ['Hotel: ' + r.petsHotel] : []),
+    });
+  });
+
+  dash.draw('tb-noites', (tb) => {
+    const s = dash.data('proximos');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    const rs = s.data.filter((r) => r.hotel > 0);
+    if (!rs.length) return cz.vazio(tb, 4, 'Nenhuma noite de hotel nos próximos 30 dias.');
+    for (const r of rs) cz.row(tb, [{ v: cz.data(r.data), cls: 'cz-nw' }, cz.diaSem(r.data), { v: r.hotel, cls: 'cz-num' }, r.petsHotel], r.data);
+  });
+
+  dash.draw('tb-estadias', (tb) => {
+    const s = dash.data('estadias');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    const rs = s.data.filter((e) => e.situacao !== 'Concluída').sort((a, b) => a.entrada.localeCompare(b.entrada));
+    if (!rs.length) return cz.vazio(tb, 7, 'Nenhum pet hospedado nem estadia marcada.');
+    for (const e of rs) {
+      const p = cz.pill(e.situacao, e.situacao === 'Hospedado agora' ? 'cz-ok' : 'cz-neu');
+      cz.row(tb, [e.pet, e.cliente, { v: e.telefone, cls: 'cz-nw' }, { v: cz.data(e.entrada), cls: 'cz-nw' }, { v: cz.data(e.saida), cls: 'cz-nw' }, { v: e.noites, cls: 'cz-num' }, p], e.id);
+    }
+  });
+
+  // ---------- creche ----------
+  dash.draw('tb-pacotes', (tb) => {
+    const s = dash.data('pacotes');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    const rs = s.data.filter((p) => p.vigente && p.atual).map((p) => ({ ...p, faltam: cz.diasAte(p.fim) }))
+      .sort((a, b) => a.restantes - b.restantes || a.faltam - b.faltam);
+    if (!rs.length) return cz.vazio(tb, 9, 'Nenhum pacote de creche vigente.');
+    for (const p of rs) {
+      const bar = document.createElement('span');
+      const b = document.createElement('span'); b.className = 'cz-bar';
+      const i = document.createElement('i'); i.style.width = (p.contratadas ? (p.restantes / p.contratadas) * 100 : 0) + '%'; b.appendChild(i);
+      bar.append(b, `${p.restantes} de ${p.contratadas}`);
+      let aviso;
+      if (p.faturaAtual === 'Vencida' || p.faturaAtual === 'Em aberto') aviso = cz.pill('Cobrar fatura', 'cz-bad');
+      else if (p.restantes === 0) aviso = cz.pill('Diárias esgotadas', 'cz-bad');
+      else if (p.restantes <= 2 || p.faltam <= 7) aviso = cz.pill('Renovar em breve', 'cz-warn');
+      else aviso = cz.pill('Em dia', 'cz-ok');
+      cz.row(tb, [p.pet, p.cliente, { v: p.telefone, cls: 'cz-nw' }, p.plano.replace('Pacote Daycare Mensal ', ''), { v: bar, cls: 'cz-nw' }, { v: cz.data(p.fim), cls: 'cz-nw' }, { v: p.faltam + ' dias', cls: 'cz-num' }, p.faturaAtual, aviso], p.id);
+    }
+  });
+
+  dash.draw('ch-volume', (el) => {
+    const s = dash.data('volume');
+    if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
+    cz.barras(el, s.data, {
+      x: 'mes', label: cz.mesCurto, fmt: (v) => cz.int.format(v), aria: 'Diárias de creche e noites de hotel por mês',
+      series: [{ key: 'creche', label: 'Diárias de creche', color: 'var(--cz-c2)' }, { key: 'hotel', label: 'Noites de hotel', color: 'var(--cz-c1)' }],
+    });
+  });
+
+  // ---------- financeiro ----------
+  const brlK = (v) => (v >= 1000 ? 'R$ ' + cz.int.format(Math.round(v / 100) / 10) + ' mil' : cz.brl.format(v));
+  dash.draw('ch-mensal', (el) => {
+    const s = dash.data('mensal');
+    if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
+    cz.barras(el, s.data, {
+      x: 'mes', label: cz.mesCurto, fmt: (v) => cz.brl.format(v), tick: brlK, aria: 'Faturamento de creche e hotel por mês',
+      series: [{ key: 'hotel', label: 'Hotel', color: 'var(--cz-c1)' }, { key: 'creche', label: 'Creche', color: 'var(--cz-c2)' }, { key: 'outros', label: 'Outros', color: 'var(--cz-c3)' }],
+      tipExtra: (r) => ['Total: ' + cz.brl.format(r.total)],
+    });
+  });
+  dash.draw('ch-pagoaberto', (el) => {
+    const s = dash.data('mensal');
+    if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
+    cz.barras(el, s.data, {
+      x: 'mes', label: cz.mesCurto, fmt: (v) => cz.brl.format(v), tick: brlK, aria: 'Valor pago e em aberto por mês',
+      series: [{ key: 'pago', label: 'Pago', color: 'var(--cz-c1)' }, { key: 'aberto', label: 'Em aberto', color: 'var(--cz-c2)' }],
+    });
+  });
+
+  dash.draw('ch-formas', (el) => {
+    const s = dash.data('formas');
+    el.replaceChildren();
+    if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
+    const rs = s.data;
+    const W = Math.max(280, el.clientWidth || 600), rh = 26, H = rs.length * rh + 4;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).attr('role', 'img').attr('aria-label', 'Recebido no ano por forma de pagamento');
+    const lab = svg.append('g');
+    let ml = 0;
+    rs.forEach((r, i) => { const t = lab.append('text').attr('x', 0).attr('y', i * rh + 17).text(r.forma); ml = Math.max(ml, t.node().getComputedTextLength()); });
+    ml = Math.ceil(ml) + 10;
+    const vals = rs.map((r) => cz.brl.format(r.valor));
+    let mr = 0;
+    const tmp = svg.append('text').text(vals.reduce((a, b) => (a.length > b.length ? a : b), '')); mr = tmp.node().getComputedTextLength() + 10; tmp.remove();
+    const x = d3.scaleLinear().domain([0, d3.max(rs, (r) => r.valor) || 1]).range([0, Math.max(40, W - ml - mr)]);
+    rs.forEach((r, i) => {
+      svg.append('rect').attr('x', ml).attr('y', i * rh + 5).attr('height', rh - 10).attr('width', Math.max(1, x(r.valor))).style('fill', 'var(--cz-c1)');
+      svg.append('text').attr('x', ml + x(r.valor) + 6).attr('y', i * rh + 17).text(vals[i]);
+    });
+  });
+
+  dash.draw('tb-abertas', (tb) => {
+    const s = dash.data('faturas');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    const rs = s.data.filter((f) => f.valida && f.aberto > 0).map((f) => ({ ...f, atraso: f.vencimento ? -cz.diasAte(f.vencimento) : 0 })).sort((a, b) => b.atraso - a.atraso);
+    if (!rs.length) return cz.vazio(tb, 8, 'Nenhuma fatura em aberto.');
+    for (const f of rs) {
+      const atrasada = f.atraso > 0;
+      cz.row(tb, [f.cliente, { v: f.telefone, cls: 'cz-nw' }, f.pet, f.tipo, { v: cz.dataAno(f.vencimento), cls: 'cz-nw' },
+        { v: atrasada ? f.atraso + ' dias' : 'no prazo', cls: 'cz-num' }, { v: cz.brl2.format(f.aberto), cls: 'cz-num' },
+        cz.pill(atrasada ? 'Vencida' : 'A vencer', atrasada ? 'cz-bad' : 'cz-warn')], f.id);
+    }
+  });
+
+  // ---------- clientes ----------
+  dash.draw('tb-clihotel', (tb) => {
+    const s = dash.data('clientes');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    const rs = s.data.filter((c) => c.usouHotel).sort((a, b) => b.noitesHotel - a.noitesHotel);
+    if (!rs.length) return cz.vazio(tb, 7, 'Ninguém usou o hotel no ano.');
+    for (const c of rs) cz.row(tb, [c.cliente, { v: c.telefone, cls: 'cz-nw' }, c.pets, { v: c.estadiasHotel, cls: 'cz-num' }, { v: c.noitesHotel, cls: 'cz-num' }, { v: cz.data(c.ultima), cls: 'cz-nw' }, { v: cz.brl.format(c.faturado), cls: 'cz-num' }], c.clienteId);
+  });
+
+  dash.draw('tb-clientes', (tb) => {
+    const s = dash.data('clientes');
+    tb.replaceChildren();
+    if (s.status !== 'ok') return;
+    const filtro = (document.getElementById('cz-filtro') || {}).value || 'todos';
+    const busca = ((document.getElementById('cz-busca') || {}).value || '').trim().toLowerCase();
+    const hoje = cz.hoje();
+    const rs = s.data.map((c) => ({ ...c, semVir: c.ultima ? -cz.diasAte(c.ultima) : null })).filter((c) => {
+      if (filtro === 'sumidos' && !(c.semVir > 30 && !(c.proxima && c.proxima >= hoje))) return false;
+      if (filtro === 'hotel' && !c.usouHotel) return false;
+      if (filtro === 'creche' && (c.usouHotel || !c.diasCreche)) return false;
+      if (filtro === 'aberto' && !(c.aberto > 0)) return false;
+      if (busca && !(c.cliente + ' ' + c.pets).toLowerCase().includes(busca)) return false;
+      return true;
+    });
+    if (!rs.length) return cz.vazio(tb, 11, 'Nenhum cliente com esse filtro.');
+    for (const c of rs) {
+      const sv = c.semVir == null ? '—' : c.semVir > 30 ? cz.pill(c.semVir + ' dias', 'cz-warn') : String(c.semVir);
+      cz.row(tb, [c.cliente, { v: c.telefone, cls: 'cz-nw' }, c.pets, { v: c.diasCreche, cls: 'cz-num' }, { v: c.noitesHotel, cls: 'cz-num' },
+        { v: String(c.mediaMes).replace('.', ','), cls: 'cz-num' }, { v: cz.data(c.ultima), cls: 'cz-nw' }, { v: sv, cls: 'cz-num' },
+        { v: c.proxima && c.proxima >= hoje ? cz.data(c.proxima) : '—', cls: 'cz-nw' }, { v: cz.brl.format(c.faturado), cls: 'cz-num' },
+        { v: c.aberto > 0 ? cz.brl2.format(c.aberto) : '—', cls: 'cz-num' + (c.aberto > 0 ? ' cz-bad' : '') }], c.clienteId);
+    }
+  });
+  document.querySelectorAll('#cz-filtro').forEach((el) => el.addEventListener('change', () => dash.draw('tb-clientes')));
+  document.querySelectorAll('#cz-busca').forEach((el) => el.addEventListener('input', () => dash.draw('tb-clientes')));
+</script>
