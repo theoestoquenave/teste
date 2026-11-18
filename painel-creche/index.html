@@ -213,20 +213,20 @@
 
   <section class="cz-panel" id="freelancers" role="tabpanel" aria-labelledby="tab-freelancers" hidden>
     <div class="cz-head">
-      <p class="cz-lede" data-read lang="pt-BR">Em <span data-draw="f-ano">—</span> foram <b data-draw="f-total" data-source="freelas_resumo" data-field="total" data-row="0">—</b> com freelancers do hotel, em média <b data-draw="f-media" data-source="freelas_resumo" data-field="mediaMes" data-row="0">—</b> por mês fechado. Cada noite de pet no hotel custou <b data-draw="f-noite" data-source="freelas_resumo" data-field="porNoite" data-row="0">—</b> em freelancers.</p>
-      <p class="cz-muted">Soma das planilhas de RPA (unidade "Hotel") e Free Colaborador (setor "Hotel") do Drive, atualizada toda quarta-feira.</p>
+      <p class="cz-lede" data-read lang="pt-BR">Em <span data-draw="f-ano">—</span> a equipe do hotel custou <b data-draw="f-total" data-source="freelas_resumo" data-field="total" data-row="0">—</b>: <b data-draw="f-freelas" data-source="freelas_resumo" data-field="freelas" data-row="0">—</b> de freelancers e <b data-draw="f-fixa" data-source="freelas_resumo" data-field="fixa" data-row="0">—</b> da funcionária fixa (<span data-draw="f-fixames">—</span> por mês). Cada noite de pet no hotel custou <b data-draw="f-noite" data-source="freelas_resumo" data-field="porNoite" data-row="0">—</b> em equipe.</p>
+      <p class="cz-muted">Freelancers: soma das planilhas de RPA (unidade "Hotel") e Free Colaborador (setor "Hotel") do Drive, atualizada toda quarta-feira. Funcionária fixa: valor mensal fixo, contado em cada mês do ano até o mês atual.</p>
     </div>
 
     <section class="cz-kpis" id="f-numeros" aria-label="Freelancers em números">
-      <div class="cz-kpi" id="fk-total"><span class="cz-l">Gasto no ano</span><span class="cz-n" data-draw="fk-total" data-source="freelas_resumo" data-field="total" data-row="0">—</span><span class="cz-l"><span data-draw="fk-lanc" data-source="freelas_resumo" data-field="lancamentos" data-row="0">—</span> lançamentos</span></div>
-      <div class="cz-kpi" id="fk-mes"><span class="cz-l">Mês atual até agora</span><span class="cz-n" data-draw="fk-mes" data-source="freelas_resumo" data-field="mesAtual" data-row="0">—</span><span class="cz-l">média dos meses fechados: <span data-draw="fk-media" data-source="freelas_resumo" data-field="mediaMes" data-row="0">—</span></span></div>
+      <div class="cz-kpi" id="fk-total"><span class="cz-l">Custo de equipe no ano</span><span class="cz-n" data-draw="fk-total" data-source="freelas_resumo" data-field="total" data-row="0">—</span><span class="cz-l">freelancers: <span data-draw="fk-freelas" data-source="freelas_resumo" data-field="freelas" data-row="0">—</span> em <span data-draw="fk-lanc" data-source="freelas_resumo" data-field="lancamentos" data-row="0">—</span> lançamentos</span></div>
+      <div class="cz-kpi" id="fk-mes"><span class="cz-l">Mês atual até agora (com a fixa)</span><span class="cz-n" data-draw="fk-mes" data-source="freelas_resumo" data-field="mesAtual" data-row="0">—</span><span class="cz-l">média dos meses fechados: <span data-draw="fk-media" data-source="freelas_resumo" data-field="mediaMes" data-row="0">—</span></span></div>
       <div class="cz-kpi" id="fk-noite"><span class="cz-l">Custo por noite de hotel</span><span class="cz-n" data-draw="fk-noite" data-source="freelas_resumo" data-field="porNoite" data-row="0">—</span><span class="cz-l"><span data-draw="fk-noites" data-source="freelas_resumo" data-field="noites" data-row="0">—</span> pet-noites no ano</span></div>
       <div class="cz-kpi" id="fk-fat"><span class="cz-l">Sobre o faturado do hotel</span><span class="cz-n" data-draw="fk-fat" data-source="freelas_resumo" data-field="sobreFaturado" data-row="0">—</span><span class="cz-l">faturado: <span data-draw="fk-fatv" data-source="freelas_resumo" data-field="faturadoHotel" data-row="0">—</span></span></div>
     </section>
 
     <div class="cz-card" id="f-mensal">
-      <h3>Gasto com freelancers do hotel por mês</h3>
-      <div class="cz-legend"><span><i class="cz-sw1"></i>RPA</span><span><i class="cz-sw2"></i>Free Colaborador</span></div>
+      <h3>Custo de equipe do hotel por mês</h3>
+      <div class="cz-legend"><span><i class="cz-sw3"></i>Funcionária fixa</span><span><i class="cz-sw1"></i>RPA</span><span><i class="cz-sw2"></i>Free Colaborador</span></div>
       <div class="cz-chart" data-draw="ch-freelas" data-source="freelas_mes"></div>
     </div>
 
@@ -235,7 +235,7 @@
         <h3>Mês a mês</h3>
         <div class="cz-tablewrap">
           <table data-source="freelas_mes" data-row-key="mes">
-            <thead><tr><th data-field="mes">Mês</th><th class="cz-num" data-field="rpa">RPA</th><th class="cz-num" data-field="free">Free</th><th class="cz-num" data-field="total">Total</th><th class="cz-num" data-field="noites">Pet-noites</th><th class="cz-num" data-field="porNoite">Por noite</th></tr></thead>
+            <thead><tr><th data-field="mes">Mês</th><th class="cz-num" data-field="rpa">RPA</th><th class="cz-num" data-field="free">Free</th><th class="cz-num" data-field="fixa">Fixa</th><th class="cz-num" data-field="total">Total</th><th class="cz-num" data-field="noites">Pet-noites</th><th class="cz-num" data-field="porNoite">Por noite</th></tr></thead>
             <tbody data-draw="tb-freelas-mes"></tbody>
           </table>
         </div>
@@ -638,15 +638,17 @@
 
 <script>
   // ---------- freelancers do hotel ----------
+  const FIXA_MES = 4700; // salário mensal da funcionária fixa do hotel, informado pelo Theo
   dash.calc('freelas_mes', {
     inputs: ['freelas', 'agenda'],
     title: 'Freelancers do hotel por mês',
-    description: 'Gasto com freelancers do hotel por mês (RPA e Free Colaborador) e pet-noites de hotel no mesmo mês, até hoje.',
+    description: 'Custo de equipe do hotel por mês: freelancers (RPA e Free Colaborador) mais a funcionária fixa, e pet-noites de hotel no mesmo mês, até hoje.',
     fn: (freelas, agenda) => {
       const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
       const m = new Map();
+      for (let i = 1; i <= +hoje.slice(5, 7); i++) { const k = hoje.slice(0, 5) + String(i).padStart(2, '0'); m.set(k, { mes: k, rpa: 0, free: 0, fixa: FIXA_MES, total: FIXA_MES, noites: 0, porNoite: null }); }
       for (const f of freelas) {
-        const r = m.get(f.mes) || { mes: f.mes, rpa: 0, free: 0, total: 0, noites: 0, porNoite: null };
+        const r = m.get(f.mes) || { mes: f.mes, rpa: 0, free: 0, fixa: 0, total: 0, noites: 0, porNoite: null };
         if (f.planilha === 'RPA') r.rpa += +f.valor; else r.free += +f.valor;
         r.total += +f.valor;
         m.set(f.mes, r);
@@ -666,19 +668,24 @@
   dash.calc('freelas_resumo', {
     inputs: ['freelas', 'agenda', 'faturas'],
     title: 'Freelancers do hotel: resumo',
-    description: 'Total do ano, média dos meses fechados, mês atual, custo por pet-noite e peso sobre o faturado do hotel.',
+    description: 'Custo de equipe do ano (freelancers mais funcionária fixa), média dos meses fechados, mês atual, custo por pet-noite e peso sobre o faturado do hotel.',
     fn: (freelas, agenda, faturas) => {
       const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
       const ano = hoje.slice(0, 4), mes = hoje.slice(0, 7);
       const doAno = freelas.filter((f) => f.mes.slice(0, 4) === ano);
-      const total = doAno.reduce((s, f) => s + +f.valor, 0);
+      const freelasTotal = doAno.reduce((s, f) => s + +f.valor, 0);
       const porMes = new Map();
+      for (let i = 1; i <= +mes.slice(5, 7); i++) porMes.set(ano + '-' + String(i).padStart(2, '0'), FIXA_MES);
       for (const f of doAno) porMes.set(f.mes, (porMes.get(f.mes) || 0) + +f.valor);
+      const fixa = FIXA_MES * +mes.slice(5, 7);
+      const total = freelasTotal + fixa;
       const fechados = [...porMes].filter(([m]) => m < mes);
       const noites = agenda.filter((a) => !a.cancelado && a.tipo === 'Hotel' && a.data.slice(0, 4) === ano && a.data <= hoje).length;
       const faturadoHotel = faturas.filter((f) => f.valida && f.tipo === 'Hotel' && f.mes.slice(0, 4) === ano && f.criada <= hoje).reduce((s, f) => s + +f.total, 0);
       return [{
         total: Math.round(total * 100) / 100,
+        freelas: Math.round(freelasTotal * 100) / 100,
+        fixa,
         lancamentos: doAno.length,
         mediaMes: fechados.length ? Math.round((fechados.reduce((s, [, v]) => s + v, 0) / fechados.length) * 100) / 100 : null,
         mesAtual: Math.round((porMes.get(mes) || 0) * 100) / 100,
@@ -711,7 +718,10 @@
   const brlc = (v) => cz.brl2.format(v);
   dash.draw('f-ano', (el) => { el.textContent = cz.hoje().slice(0, 4); });
   cz.kpi('f-total', 'freelas_resumo', 'total', brl0);
-  cz.kpi('f-media', 'freelas_resumo', 'mediaMes', brl0);
+  cz.kpi('f-freelas', 'freelas_resumo', 'freelas', brl0);
+  cz.kpi('f-fixa', 'freelas_resumo', 'fixa', brl0);
+  dash.draw('f-fixames', (el) => { el.textContent = brl0(FIXA_MES); });
+  cz.kpi('fk-freelas', 'freelas_resumo', 'freelas', brl0);
   cz.kpi('f-noite', 'freelas_resumo', 'porNoite', brlc);
   cz.kpi('fk-total', 'freelas_resumo', 'total', brl0);
   cz.kpi('fk-lanc', 'freelas_resumo', 'lancamentos', (v) => cz.int.format(v));
@@ -727,8 +737,8 @@
     if (s.status !== 'ok') { el.textContent = s.status === 'error' ? 'Não carregou' : '—'; return; }
     cz.barras(el, s.data, {
       x: 'mes', label: cz.mesCurto, fmt: brlc, tick: (v) => (v >= 1000 ? 'R$ ' + cz.int.format(Math.round(v / 100) / 10) + ' mil' : brl0(v)),
-      aria: 'Gasto com freelancers do hotel por mês, RPA e Free Colaborador',
-      series: [{ key: 'rpa', label: 'RPA', color: 'var(--cz-c1)' }, { key: 'free', label: 'Free Colaborador', color: 'var(--cz-c2)' }],
+      aria: 'Custo de equipe do hotel por mês: funcionária fixa, RPA e Free Colaborador',
+      series: [{ key: 'fixa', label: 'Funcionária fixa', color: 'var(--cz-c3)' }, { key: 'rpa', label: 'RPA', color: 'var(--cz-c1)' }, { key: 'free', label: 'Free Colaborador', color: 'var(--cz-c2)' }],
       tipExtra: (r) => ['Total: ' + brlc(r.total), r.porNoite != null ? `Por pet-noite: ${brlc(r.porNoite)} (${r.noites} noites)` : 'Sem noites de hotel'],
     });
   });
@@ -737,8 +747,8 @@
     const s = dash.data('freelas_mes');
     tb.replaceChildren();
     if (s.status !== 'ok') return;
-    if (!s.data.length) return cz.vazio(tb, 6, 'Nenhum lançamento de hotel no ano.');
-    for (const r of s.data) cz.row(tb, [cz.mesCurto(r.mes), { v: brlc(r.rpa), cls: 'cz-num' }, { v: brlc(r.free), cls: 'cz-num' }, { v: brlc(r.total), cls: 'cz-num' }, { v: r.noites, cls: 'cz-num' }, { v: r.porNoite != null ? brlc(r.porNoite) : '—', cls: 'cz-num' }], r.mes);
+    if (!s.data.length) return cz.vazio(tb, 7, 'Nenhum lançamento de hotel no ano.');
+    for (const r of s.data) cz.row(tb, [cz.mesCurto(r.mes), { v: brlc(r.rpa), cls: 'cz-num' }, { v: brlc(r.free), cls: 'cz-num' }, { v: brlc(r.fixa), cls: 'cz-num' }, { v: brlc(r.total), cls: 'cz-num' }, { v: r.noites, cls: 'cz-num' }, { v: r.porNoite != null ? brlc(r.porNoite) : '—', cls: 'cz-num' }], r.mes);
   });
 
   dash.draw('tb-freelas-pessoa', (tb) => {
