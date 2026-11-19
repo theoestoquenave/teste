@@ -56,12 +56,21 @@ def fone(c):
     return f"({p[:2]}) {p[2:7]}-{p[7:]}" if len(p) == 11 else (f"({p[:2]}) {p[2:6]}-{p[6:]}" if len(p) == 10 else p)
 
 
+def falecidos(cid):
+    r = get("/v1/pet", clientId=cid, includeDeceased="true", limit=100)
+    return {(p.get("name") or "").strip().lower() for p in r.get("data", []) if p.get("deceased")}
+
+
+with ThreadPoolExecutor(8) as ex:
+    mortos = dict(zip(list(cli), ex.map(falecidos, list(cli))))
+
 rows = []
 for (cid, pet), ds in noites.items():
     ds = sorted(ds)
     est = 1 + sum(1 for x, y in zip(ds, ds[1:]) if (dt.date.fromisoformat(y) - dt.date.fromisoformat(x)).days > 1)
     rows.append({"clienteId": str(cid), "cliente": (cli.get(cid) or {}).get("name") or f"Cliente {cid}", "telefone": fone(cli.get(cid)),
-                 "pet": pet, "noites": len(ds), "estadias": est, "primeira": ds[0], "ultima": ds[-1]})
+                 "pet": pet, "noites": len(ds), "estadias": est, "primeira": ds[0], "ultima": ds[-1],
+                 "falecido": pet.lower() in mortos.get(cid, set())})
 rows.sort(key=lambda r: -r["noites"])
 json.dump({"rows": rows, "meta": [
     {"label": "Origem", "value": "API TecPet, loja 1885 – Nave Tatuapé: diárias 24h e Diária Gato não canceladas"},

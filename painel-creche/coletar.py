@@ -72,6 +72,14 @@ with ThreadPoolExecutor(8) as ex:
     dados["clients"] = [c for c in ex.map(lambda i: get(f"/v1/client/{i}"), sorted(ids)) if c]
 print("clientes", len(dados["clients"]), file=sys.stderr)
 
+# Pets desses clientes, com a marcação de falecido (a lista da rede inteira é grande demais)
+def pets_do_cliente(cid):
+    r = get("/v1/pet", clientId=cid, includeDeceased="true", limit=100)
+    return [{"id": p["id"], "name": p.get("name"), "clientId": cid, "deceased": bool(p.get("deceased"))} for p in r.get("data", [])]
+with ThreadPoolExecutor(8) as ex:
+    dados["pets"] = [p for ps in ex.map(pets_do_cliente, sorted(ids)) for p in ps]
+print("pets", len(dados["pets"]), "falecidos", sum(p["deceased"] for p in dados["pets"]), file=sys.stderr)
+
 dados["analyticsSales"] = get("/v1/analytics/sales", dateFrom=ini_ano.isoformat(), dateTo=hoje.isoformat(), granularity="MONTH", groupBy="SEGMENT")
 
 json.dump(dados, open(OUT, "w"), ensure_ascii=False)

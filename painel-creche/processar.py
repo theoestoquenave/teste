@@ -252,3 +252,5 @@ grava("faturas", fats)
 grava("pacotes", pacs)
 grava("clientes", clis)
 grava("recebimentos", pags)
+grava("falecidos", [{"id": str(p["id"]), "pet": (p.get("name") or "").strip(), "clienteId": str(p["clientId"])}
+                    for p in d.get("pets", []) if p.get("deceased")])

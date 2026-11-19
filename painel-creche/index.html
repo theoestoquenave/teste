@@ -182,7 +182,7 @@
     </header>
     <div class="cz-card" id="clientes-hotel">
       <h3>Pets que já usaram o hotel</h3>
-      <p class="cz-muted">Todo o histórico no TecPet, que começa em outubro de 2025. Um pet por linha, do que mais ficou para o que menos ficou.</p>
+      <p class="cz-muted">Todo o histórico no TecPet, que começa em outubro de 2025, sem os pets marcados como falecidos no sistema. Um pet por linha, do que mais ficou para o que menos ficou.</p>
       <div class="cz-tablewrap cz-tall">
         <table data-source="hotel_pets" data-row-key="id">
           <thead><tr><th data-field="pet">Pet</th><th data-field="cliente">Tutor</th><th data-field="telefone">Telefone</th><th class="cz-num" data-field="estadias">Estadias</th><th class="cz-num" data-field="noites">Noites</th><th class="cz-num" data-field="noites2026">Em 2026</th><th data-field="primeira">Primeira</th><th data-field="ultima">Última</th><th data-field="proxima">Próxima</th></tr></thead>
@@ -601,19 +601,22 @@
 
   // ---------- clientes ----------
   dash.calc('hotel_pets', {
-    inputs: ['hotel_historico', 'agenda'],
+    inputs: ['hotel_historico', 'agenda', 'falecidos'],
     title: 'Pets que já usaram o hotel',
-    description: 'Cada pet com diária 24h no histórico do TecPet (desde out/2025): noites até hoje, estadias, primeira, última e próxima noite.',
-    fn: (hotel_historico, agenda) => {
+    description: 'Cada pet com diária 24h no histórico do TecPet (desde out/2025), sem os pets marcados como falecidos: noites até hoje, estadias, primeira, última e próxima noite.',
+    fn: (hotel_historico, agenda, falecidos) => {
       const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
       const chave = (cid, pet) => String(cid) + '|' + String(pet || '').trim().toLowerCase();
+      const mortos = new Set(falecidos.map((f) => chave(f.clienteId, f.pet)));
       const m = new Map();
       for (const h of hotel_historico) {
+        if (h.falecido === true || mortos.has(chave(h.clienteId, h.pet))) continue;
         m.set(chave(h.clienteId, h.pet), { id: chave(h.clienteId, h.pet), pet: h.pet.trim(), cliente: h.cliente, telefone: h.telefone, estadias: +h.estadias, noites: +h.noites, noites2026: 0, primeira: h.primeira, ultima: h.ultima, proxima: null, _datas: [] });
       }
       for (const a of agenda) {
         if (a.cancelado || a.tipo !== 'Hotel') continue;
         const k = chave(a.clienteId, a.pet);
+        if (mortos.has(k) || hotel_historico.some((h) => h.falecido === true && chave(h.clienteId, h.pet) === k)) continue;
         const r = m.get(k) || { id: k, pet: a.pet.trim(), cliente: a.cliente, telefone: a.telefone, estadias: 0, noites: 0, noites2026: 0, primeira: null, ultima: null, proxima: null, _datas: [] };
         if (a.data > hoje) { if (!r.proxima || a.data < r.proxima) r.proxima = a.data; }
         else r._datas.push(a.data);
