@@ -2411,7 +2411,10 @@ async function gerarPlanilhaFornecedorXlsx(unidade, mes, itensPedido){
   zip.file(XLSX_WORKBOOK, workbookText);
 
   const base64Content = await zip.generateAsync({ type: 'base64', compression: 'DEFLATE' });
-  return { base64Content, avisos, nomeArquivo: nomeArquivoPadraoXlsx(unidade, mes) };
+  // Nome do arquivo usa o mês em que a exportação é feita, não o "mes" (mês de
+  // referência) do pedido — ex.: pedido de novembro exportado em 1/12 sai como
+  // "Dezembro" (decisão de 19/11/2026).
+  return { base64Content, avisos, nomeArquivo: nomeArquivoPadraoXlsx(unidade, mesAtual()) };
 }
 
 const PASTA_DRIVE_PEDIDOS = 'Pedidos Fornecedor';
