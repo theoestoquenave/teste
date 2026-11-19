@@ -44,6 +44,10 @@
   .cz-bar > i { display: block; height: 100%; background: var(--cz-c1); }
   .cz-tools { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; }
   .cz-tools input { font: inherit; font-size: var(--cds-font-size-caption); padding: 6px 10px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); min-width: 0; flex: 1 1 180px; max-width: 320px; }
+  .cz-btn { font: inherit; font-size: var(--cds-font-size-caption); padding: 6px 12px; border-radius: var(--cds-radius); border: 1px solid var(--color-fg); background: var(--color-fg); color: var(--color-bg); cursor: pointer; }
+  .cz-btn-2 { background: transparent; color: var(--color-fg); border-color: var(--color-border-line); }
+  .cz-btn:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+  .cz-btn:disabled { opacity: .5; cursor: default; }
   .cz-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: 8px 0; }
   .cz-delta { font-size: var(--cds-font-size-caption); }
   #dash-root { --cz-c1: var(--cds-chart-series-1, #2a78d6); --cz-c2: var(--cds-chart-series-2, #c8551e); --cz-c3: var(--cds-chart-muted, #9aa); }
@@ -190,8 +194,40 @@
         </table>
       </div>
     </div>
+    <div class="cz-card" id="voltar">
+      <h3>Para chamar de volta</h3>
+      <p class="cz-muted">Clientes que pararam de vir: sem visita no período escolhido e sem nada agendado. Tutores cujos pets estão todos marcados como falecidos no TecPet ficam de fora.</p>
+      <div class="cz-tools">
+        <select class="dash-select" id="cz-voltar-dias" aria-label="Sem vir há mais de">
+          <option value="30">Sem vir há mais de 30 dias</option>
+          <option value="60">Sem vir há mais de 60 dias</option>
+          <option value="90">Sem vir há mais de 90 dias</option>
+        </select>
+        <select class="dash-select" id="cz-voltar-min" aria-label="Visitas no histórico">
+          <option value="1">Qualquer cliente</option>
+          <option value="3">Veio 3 vezes ou mais</option>
+          <option value="10">Veio 10 vezes ou mais</option>
+        </select>
+        <select class="dash-select" id="cz-voltar-tipo" aria-label="Serviço usado">
+          <option value="todos">Creche e hotel</option>
+          <option value="creche">Usou creche</option>
+          <option value="hotel">Usou hotel</option>
+        </select>
+        <button type="button" class="cz-btn" id="cz-exportar">Exportar lista (CSV)</button>
+        <button type="button" class="cz-btn cz-btn-2" id="cz-copiar">Copiar telefones</button>
+      </div>
+      <p class="cz-muted"><span data-draw="voltar-qtd">—</span> <span data-draw="voltar-msg"></span></p>
+      <div class="cz-tablewrap cz-tall">
+        <table data-source="frequencia" data-row-key="clienteId">
+          <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pets">Pets</th><th data-field="usou">Usava</th><th class="cz-num" data-field="visitas">Visitas</th><th data-field="ultima">Última visita</th><th class="cz-num">Dias sem vir</th></tr></thead>
+          <tbody data-draw="tb-voltar"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="cz-card" id="frequencia">
       <h3>Frequência de todos os clientes</h3>
+      <p class="cz-muted">Totais de todo o histórico no TecPet (desde out/2025). Faturado e em aberto contam só 2026.</p>
       <div class="cz-tools">
         <select class="dash-select" id="cz-filtro" aria-label="Filtrar clientes">
           <option value="todos">Todos</option>
@@ -203,8 +239,8 @@
         <input type="search" id="cz-busca" placeholder="Buscar cliente ou pet" aria-label="Buscar cliente ou pet">
       </div>
       <div class="cz-tablewrap cz-tall">
-        <table data-source="clientes" data-row-key="clienteId">
-          <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pets">Pets</th><th class="cz-num" data-field="diasCreche">Creche</th><th class="cz-num" data-field="noitesHotel">Hotel</th><th class="cz-num" data-field="mediaMes">Por mês</th><th data-field="ultima">Última</th><th class="cz-num">Dias sem vir</th><th data-field="proxima">Próxima</th><th class="cz-num" data-field="faturado">Faturado</th><th class="cz-num" data-field="aberto">Em aberto</th></tr></thead>
+        <table data-source="frequencia" data-row-key="clienteId">
+          <thead><tr><th data-field="cliente">Cliente</th><th data-field="telefone">Telefone</th><th data-field="pets">Pets</th><th class="cz-num" data-field="diasCreche">Creche</th><th class="cz-num" data-field="noitesHotel">Hotel</th><th class="cz-num" data-field="mediaMes">Por mês</th><th data-field="primeira">Primeira</th><th data-field="ultima">Última</th><th class="cz-num">Dias sem vir</th><th data-field="proxima">Próxima</th><th class="cz-num" data-field="faturado">Faturado 2026</th><th class="cz-num" data-field="aberto">Em aberto</th></tr></thead>
           <tbody data-draw="tb-clientes"></tbody>
         </table>
       </div>
@@ -649,8 +685,53 @@
     for (const r of s.data) cz.row(tb, [r.pet, r.cliente, { v: r.telefone, cls: 'cz-nw' }, { v: r.estadias, cls: 'cz-num' }, { v: r.noites, cls: 'cz-num' }, { v: r.noites2026, cls: 'cz-num' }, { v: cz.dataAno(r.primeira), cls: 'cz-nw' }, { v: cz.dataAno(r.ultima), cls: 'cz-nw' }, { v: r.proxima ? cz.data(r.proxima) : '—', cls: 'cz-nw' }], r.id);
   });
 
+  dash.calc('frequencia', {
+    inputs: ['clientes', 'hotel_historico', 'falecidos'],
+    title: 'Frequência dos clientes (todo o histórico)',
+    description: 'Por cliente: diárias de creche e noites de hotel de todo o histórico no TecPet (out/2025 em diante), média por mês, primeira e última visita, sem os pets falecidos. Faturado e em aberto são de 2026.',
+    fn: (clientes, hotel_historico, falecidos) => {
+      const morto = new Set(falecidos.map((f) => String(f.clienteId) + '|' + String(f.pet).trim().toLowerCase()));
+      const m = new Map();
+      const base = (id, cliente, telefone) => ({ clienteId: String(id), cliente, telefone, _pets: new Set(), _todosPets: new Set(), diasCreche: 0, noitesHotel: 0, visitas: 0, _meses: 0, primeira: null, ultima: null, proxima: null, faturado: 0, aberto: 0 });
+      const addPet = (r, pet) => { const p = String(pet || '').trim(); if (!p) return; r._todosPets.add(p.toLowerCase()); if (!morto.has(r.clienteId + '|' + p.toLowerCase())) r._pets.add(p); };
+      for (const c of clientes) {
+        const r = base(c.clienteId, c.cliente, c.telefone);
+        String(c.pets || '').split(', ').forEach((p) => addPet(r, p));
+        r.diasCreche += +c.diasCreche || 0; r.noitesHotel += +c.noitesHotel || 0; r.visitas += +c.visitas || 0; r._meses += +c.mesesAtivos || 0;
+        r.primeira = c.primeira; r.ultima = c.ultima; r.proxima = c.proxima; r.faturado = +c.faturado || 0; r.aberto = +c.aberto || 0;
+        m.set(r.clienteId, r);
+      }
+      const mesesHist = new Map();
+      for (const h of hotel_historico) {
+        const id = String(h.clienteId);
+        const r = m.get(id) || base(id, h.cliente, h.telefone);
+        if (!r.telefone) r.telefone = h.telefone;
+        addPet(r, h.pet);
+        r.diasCreche += +h.diasCreche || 0; r.noitesHotel += +h.noites || 0; r.visitas += (+h.diasCreche || 0) + (+h.noites || 0);
+        if (h.primeiraVisita && (!r.primeira || h.primeiraVisita < r.primeira)) r.primeira = h.primeiraVisita;
+        if (h.ultimaVisita && (!r.ultima || h.ultimaVisita > r.ultima)) r.ultima = h.ultimaVisita;
+        const ms = mesesHist.get(id) || new Set(); let lm = h.meses || []; if (typeof lm === 'string') { try { lm = JSON.parse(lm); } catch (e) { lm = []; } } (Array.isArray(lm) ? lm : []).forEach((x) => ms.add(x)); mesesHist.set(id, ms);
+        m.set(id, r);
+      }
+      const out = [];
+      for (const r of m.values()) {
+        const meses = r._meses + (mesesHist.get(r.clienteId) || new Set()).size;
+        const todosFalecidos = r._todosPets.size > 0 && r._pets.size === 0;
+        if (todosFalecidos || (!r.visitas && !r.proxima && !r.faturado)) continue;
+        out.push({
+          clienteId: r.clienteId, cliente: r.cliente, telefone: r.telefone || '', pets: [...r._pets].sort().join(', '),
+          diasCreche: r.diasCreche, noitesHotel: r.noitesHotel, visitas: r.visitas, mediaMes: meses ? Math.round((r.visitas / meses) * 10) / 10 : 0,
+          primeira: r.primeira, ultima: r.ultima, proxima: r.proxima,
+          usou: r.diasCreche && r.noitesHotel ? 'Creche e hotel' : r.noitesHotel ? 'Hotel' : r.diasCreche ? 'Creche' : '—',
+          faturado: Math.round(r.faturado * 100) / 100, aberto: Math.round(r.aberto * 100) / 100,
+        });
+      }
+      return out.sort((a, b) => b.visitas - a.visitas || a.cliente.localeCompare(b.cliente));
+    },
+  });
+
   dash.draw('tb-clientes', (tb) => {
-    const s = dash.data('clientes');
+    const s = dash.data('frequencia');
     tb.replaceChildren();
     if (s.status !== 'ok') return;
     const filtro = (document.getElementById('cz-filtro') || {}).value || 'todos';
@@ -658,23 +739,73 @@
     const hoje = cz.hoje();
     const rs = s.data.map((c) => ({ ...c, semVir: c.ultima ? -cz.diasAte(c.ultima) : null })).filter((c) => {
       if (filtro === 'sumidos' && !(c.semVir > 30 && !(c.proxima && c.proxima >= hoje))) return false;
-      if (filtro === 'hotel' && !c.usouHotel) return false;
-      if (filtro === 'creche' && (c.usouHotel || !c.diasCreche)) return false;
+      if (filtro === 'hotel' && !c.noitesHotel) return false;
+      if (filtro === 'creche' && (c.noitesHotel || !c.diasCreche)) return false;
       if (filtro === 'aberto' && !(c.aberto > 0)) return false;
       if (busca && !(c.cliente + ' ' + c.pets).toLowerCase().includes(busca)) return false;
       return true;
     });
-    if (!rs.length) return cz.vazio(tb, 11, 'Nenhum cliente com esse filtro.');
+    if (!rs.length) return cz.vazio(tb, 12, 'Nenhum cliente com esse filtro.');
     for (const c of rs) {
       const sv = c.semVir == null ? '—' : c.semVir > 30 ? cz.pill(c.semVir + ' dias', 'cz-warn') : String(c.semVir);
       cz.row(tb, [c.cliente, { v: c.telefone, cls: 'cz-nw' }, c.pets, { v: c.diasCreche, cls: 'cz-num' }, { v: c.noitesHotel, cls: 'cz-num' },
-        { v: String(c.mediaMes).replace('.', ','), cls: 'cz-num' }, { v: cz.data(c.ultima), cls: 'cz-nw' }, { v: sv, cls: 'cz-num' },
+        { v: String(c.mediaMes).replace('.', ','), cls: 'cz-num' }, { v: cz.dataAno(c.primeira), cls: 'cz-nw' }, { v: cz.dataAno(c.ultima), cls: 'cz-nw' }, { v: sv, cls: 'cz-num' },
         { v: c.proxima && c.proxima >= hoje ? cz.data(c.proxima) : '—', cls: 'cz-nw' }, { v: cz.brl.format(c.faturado), cls: 'cz-num' },
         { v: c.aberto > 0 ? cz.brl2.format(c.aberto) : '—', cls: 'cz-num' + (c.aberto > 0 ? ' cz-bad' : '') }], c.clienteId);
     }
   });
   document.querySelectorAll('#cz-filtro').forEach((el) => el.addEventListener('change', () => dash.draw('tb-clientes')));
   document.querySelectorAll('#cz-busca').forEach((el) => el.addEventListener('input', () => dash.draw('tb-clientes')));
+
+  // ---------- para chamar de volta ----------
+  const voltarLista = () => {
+    const s = dash.data('frequencia');
+    if (s.status !== 'ok') return null;
+    const val = (id, d) => (document.getElementById(id) || {}).value || d;
+    const dias = +val('cz-voltar-dias', '30'), min = +val('cz-voltar-min', '1'), tipo = val('cz-voltar-tipo', 'todos');
+    const hoje = cz.hoje();
+    return s.data.map((c) => ({ ...c, semVir: c.ultima ? -cz.diasAte(c.ultima) : null }))
+      .filter((c) => c.semVir != null && c.semVir > dias && !(c.proxima && c.proxima >= hoje) && c.visitas >= min
+        && (tipo === 'todos' || (tipo === 'creche' ? c.diasCreche > 0 : c.noitesHotel > 0)))
+      .sort((a, b) => b.visitas - a.visitas || a.semVir - b.semVir);
+  };
+  let voltarAviso = '';
+  dash.draw('voltar-qtd', (el) => { const l = voltarLista(); el.textContent = l ? (l.length === 1 ? '1 cliente na lista.' : l.length + ' clientes na lista.') : '—'; });
+  dash.draw('voltar-msg', (el) => { el.textContent = voltarAviso; });
+  dash.draw('tb-voltar', (tb) => {
+    tb.replaceChildren();
+    const l = voltarLista();
+    if (!l) return;
+    if (!l.length) return cz.vazio(tb, 7, 'Ninguém parou de vir com esses filtros.');
+    for (const c of l) cz.row(tb, [c.cliente, { v: c.telefone, cls: 'cz-nw' }, c.pets, c.usou, { v: c.visitas, cls: 'cz-num' }, { v: cz.dataAno(c.ultima), cls: 'cz-nw' }, { v: c.semVir, cls: 'cz-num' }], c.clienteId);
+  });
+  const redesenharVoltar = () => { voltarAviso = ''; dash.draw('voltar-qtd'); dash.draw('voltar-msg'); dash.draw('tb-voltar'); };
+  ['cz-voltar-dias', 'cz-voltar-min', 'cz-voltar-tipo'].forEach((id) => document.querySelectorAll('#' + id).forEach((el) => el.addEventListener('change', redesenharVoltar)));
+  const avisar = (t) => { voltarAviso = t; dash.draw('voltar-msg'); };
+  const zap = (tel) => { const d = String(tel || '').replace(/\D/g, ''); return d.length >= 10 ? 'https://wa.me/55' + d : ''; };
+  document.querySelectorAll('#cz-exportar').forEach((btn) => btn.addEventListener('click', async () => {
+    const l = voltarLista();
+    if (!l || !l.length) return avisar('Não há clientes para exportar com esses filtros.');
+    const esc = (v) => { const t = String(v ?? ''); return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const linhas = [['Cliente', 'Telefone', 'WhatsApp', 'Pets', 'Usava', 'Diárias de creche', 'Noites de hotel', 'Visitas', 'Primeira visita', 'Última visita', 'Dias sem vir', 'Faturado 2026']]
+      .concat(l.map((c) => [c.cliente, c.telefone, zap(c.telefone), c.pets, c.usou, c.diasCreche, c.noitesHotel, c.visitas, cz.dataAno(c.primeira), cz.dataAno(c.ultima), c.semVir, String(c.faturado).replace('.', ',')]));
+    const csv = '﻿' + linhas.map((r) => r.map(esc).join(';')).join('\r\n');
+    const downloads = await claude.use('downloads');
+    if (!downloads) return avisar('Este visualizador não permite baixar arquivos. Use "Copiar telefones" ou baixe pela aba Fontes.');
+    try {
+      await downloads.save({ filename: `clientes-para-chamar-de-volta-${cz.hoje()}.csv`, data: csv });
+      avisar('Lista exportada.');
+    } catch (e) {
+      avisar(e && e.code === 'declined' ? 'Exportação cancelada.' : 'Não foi possível exportar agora.');
+    }
+  }));
+  document.querySelectorAll('#cz-copiar').forEach((btn) => btn.addEventListener('click', async () => {
+    const l = voltarLista();
+    if (!l || !l.length) return avisar('Não há telefones para copiar com esses filtros.');
+    const texto = l.filter((c) => c.telefone).map((c) => `${c.cliente}\t${c.telefone}\t${c.pets}`).join('\n');
+    try { await navigator.clipboard.writeText(texto); avisar(`${l.filter((c) => c.telefone).length} telefones copiados (nome, telefone e pets).`); }
+    catch (e) { avisar('O navegador não deixou copiar. Use "Exportar lista".'); }
+  }));
 </script>
 
 <script>
