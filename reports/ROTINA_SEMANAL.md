@@ -35,12 +35,16 @@ corrente (dia 1 até hoje).
 ## Passo a passo (o que a Routine deve fazer)
 
 1. **Sincronizar**: ler o artifact publicado
-   (`https://claude.ai/artifact/KB2kBmHWdTu93Ech2uyueV`) e comparar a
+   (`https://claude.ai/artifact/AfUvBNoVJeB8hUsGtnu9uD`) e comparar a
    `version id` com a do último publish conhecido nesta sessão. Se
    divergir, splicar o `<script id="pedidos-state-data">` do artifact ao
    vivo no `index.html` local antes de seguir (nunca sobrescrever
    cegamente — ver disciplina de "live-drift-check" usada em toda esta
    conversa).
+   - Se esse link também der "artifact not found": não é pra recriar
+     sozinho de novo — pare e avise o usuário (aconteceu em 23/11/2026
+     com o link anterior, KB2kBmHWdTu93Ech2uyueV, que tinha sumido sem
+     explicação e sem compartilhamento preservado no novo).
 2. **Rodar o script**:
    ```
    node reports/importar_historico_api.mjs
