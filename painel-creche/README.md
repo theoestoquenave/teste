@@ -19,5 +19,5 @@ Painel publicado: https://claude.ai/artifact/UeZcGVLvAhxH7LtmG41HnL
 - Hotel = serviços "Diária 24 horas", "Diária Gato" e o pacote "Aluguel". Creche = "Diária Avulsa",
   "Meia Diária" e pacotes Daycare. O resto (medicação, silvestres) entra como "Outros".
 - Estadia = noites seguidas do mesmo pet.
-- Faturamento = faturas não canceladas, pela data de emissão (mesma regra da Projeção financeira do TecPet).
+- Faturamento = faturas não canceladas, pelo mês de vencimento (mesma regra da tela Projeção financeira do TecPet: "Previsto", "Liquidado" e "Aberto").
 - Pacote atual = o mais recente de cada pet. Alerta quando sobram 2 diárias ou menos, ou faltam 7 dias para o fim.

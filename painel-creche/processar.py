@@ -124,8 +124,12 @@ for i in d["invoices"]:
         tipo = tipo_servico(nome) if b else "Creche"
         origem = "Avulso"
     st = STATUS_FAT.get(i["status"], i["status"])
+    # mês da fatura = mês de vencimento, como a tela Projeção financeira do TecPet (sem vencimento: emissão)
+    mes_fat = (dia_local(i.get("dueDate")) or dia_local(i["createdDate"]))[:7]
+    if mes_fat < f"{hoje.year}-01":
+        continue
     fats.append({
-        "id": i["id"], "ref": i.get("reference"), "criada": dia_local(i["createdDate"]), "mes": dia_local(i["createdDate"])[:7],
+        "id": i["id"], "ref": i.get("reference"), "criada": dia_local(i["createdDate"]), "mes": mes_fat,
         "vencimento": dia_local(i.get("dueDate")), "pagaEm": dia_local(i.get("paidDate")),
         "cliente": i.get("clientName") or nome_cli(i.get("clientId")), "clienteId": i.get("clientId"),
         "telefone": tel_cli(i.get("clientId")), "pet": i.get("petName") or "",

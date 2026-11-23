@@ -84,7 +84,7 @@
     <div class="cz-kpi" id="k-hotel"><span class="cz-l">No hotel hoje</span><span class="cz-n" data-draw="k-hotel" data-source="resumo" data-field="hotelHoje" data-row="0">—</span><span class="cz-l">pets em diária 24h</span></div>
     <div class="cz-kpi" id="k-creche"><span class="cz-l">Na creche hoje</span><span class="cz-n" data-draw="k-creche" data-source="resumo" data-field="crecheHoje" data-row="0">—</span><span class="cz-l">diárias de day care</span></div>
     <div class="cz-kpi" id="k-pacotes"><span class="cz-l">Pacotes acabando</span><span class="cz-n" data-draw="k-pacotes" data-source="resumo" data-field="pacAlerta" data-row="0">—</span><span class="cz-l">restam 2 diárias ou menos, ou vence em 7 dias</span></div>
-    <div class="cz-kpi" id="k-fatmes"><span class="cz-l">Faturado no mês</span><span class="cz-n" data-draw="k-fatmes" data-source="resumo" data-field="fatMes" data-row="0">—</span><span class="cz-delta" data-draw="k-fatdelta">—</span></div>
+    <div class="cz-kpi" id="k-fatmes"><span class="cz-l">Recebido no mês</span><span class="cz-n" data-draw="k-recmes" data-source="resumo" data-field="recebidoMes" data-row="0">—</span><span class="cz-l">falta receber: <span data-draw="k-faltames" data-source="resumo" data-field="faltaMes" data-row="0">—</span></span><span class="cz-l">previsto no mês: <span data-draw="k-fatmes" data-source="resumo" data-field="fatMes" data-row="0">—</span></span></div>
     <div class="cz-kpi" id="k-aberto"><span class="cz-l">Vencido sem pagar</span><span class="cz-n" data-draw="k-vencido" data-source="resumo" data-field="vencidoValor" data-row="0">—</span><span class="cz-l">a vencer: <span data-draw="k-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</span></span></div>
     <div class="cz-kpi" id="k-ano"><span class="cz-l">Faturado no ano</span><span class="cz-n" data-draw="k-ano" data-source="resumo" data-field="faturadoAno" data-row="0">—</span><span class="cz-l">recebido: <span data-draw="k-recebido" data-source="resumo" data-field="recebidoAno" data-row="0">—</span></span></div>
   </section>
@@ -144,7 +144,7 @@
   <section class="cz-sec" id="financeiro">
     <header>
       <h2>Faturamento</h2>
-      <p class="cz-muted">Faturas de creche e hotel pela data de emissão, sem as canceladas.</p>
+      <p class="cz-muted">Faturas de creche e hotel pelo mês de vencimento, sem as canceladas, como na Projeção financeira do TecPet.</p>
     </header>
     <div class="cz-grid2">
       <div class="cz-card" id="fat-mensal">
@@ -317,7 +317,7 @@
       const ant = new Date(hoje + 'T12:00:00Z'); ant.setUTCMonth(ant.getUTCMonth() - 1);
       const antDia = ant.toISOString().slice(0, 10);
       const fatMes = soma(validas.filter((f) => f.mes === mes), 'total');
-      const fatAnt = soma(validas.filter((f) => f.mes === antDia.slice(0, 7) && f.criada <= antDia), 'total');
+      const fatAnt = soma(validas.filter((f) => f.mes === antDia.slice(0, 7) && (f.vencimento || f.criada) <= antDia), 'total');
       const abertas = validas.filter((f) => f.aberto > 0);
       return [{
         hotelHoje: ativos.filter((a) => a.tipo === 'Hotel' && a.data === hoje).length,
@@ -325,14 +325,16 @@
         noites7: ativos.filter((a) => a.tipo === 'Hotel' && a.data > hoje && a.data <= somaDias(hoje, 7)).length,
         pacAlerta: pacotes.filter((p) => p.vigente && p.atual && (p.restantes <= 2 || diasAte(p.fim) <= 7)).length,
         fatMes, fatMesAnteriorMesmoDia: fatAnt,
+        recebidoMes: soma(validas.filter((f) => f.mes === mes), 'pago'),
+        faltaMes: soma(validas.filter((f) => f.mes === mes), 'aberto'),
         variacao: fatAnt ? fatMes / fatAnt - 1 : null,
         abertoQtd: abertas.length,
         abertoValor: soma(abertas, 'aberto'),
         vencidoQtd: abertas.filter((f) => f.vencimento && f.vencimento < hoje).length,
         vencidoValor: soma(abertas.filter((f) => f.vencimento && f.vencimento < hoje), 'aberto'),
         aVencerValor: soma(abertas.filter((f) => !f.vencimento || f.vencimento >= hoje), 'aberto'),
-        faturadoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4)), 'total'),
-        recebidoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4)), 'pago'),
+        faturadoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4) && f.mes <= mes), 'total'),
+        recebidoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4) && f.mes <= mes), 'pago'),
         clientesAno: clientes.filter((c) => c.visitas > 0).length,
         clientesHotel: clientes.filter((c) => c.usouHotel).length,
       }];
@@ -377,7 +379,7 @@
   dash.calc('mensal', {
     inputs: ['faturas'],
     title: 'Faturamento por mês',
-    description: 'Soma das faturas não canceladas por mês de emissão, separadas em hotel, creche e outros, e quanto já foi pago.',
+    description: 'Soma das faturas não canceladas por mês de vencimento (como a Projeção financeira do TecPet), separadas em hotel, creche e outros, e quanto já foi pago.',
     fn: (faturas) => {
       const m = new Map();
       for (const f of faturas) {
@@ -499,21 +501,14 @@
   cz.kpi('k-creche', 'resumo', 'crecheHoje', n);
   cz.kpi('k-pacotes', 'resumo', 'pacAlerta', n);
   cz.kpi('k-fatmes', 'resumo', 'fatMes', (v) => cz.brl.format(v));
+  cz.kpi('k-recmes', 'resumo', 'recebidoMes', (v) => cz.brl.format(v));
+  cz.kpi('k-faltames', 'resumo', 'faltaMes', (v) => cz.brl.format(v));
   cz.kpi('k-avencer', 'resumo', 'aVencerValor', (v) => cz.brl.format(v));
   cz.kpi('k-vencido', 'resumo', 'vencidoValor', (v) => cz.brl.format(v));
   cz.kpi('k-ano', 'resumo', 'faturadoAno', (v) => cz.brl.format(v));
   cz.kpi('k-recebido', 'resumo', 'recebidoAno', (v) => cz.brl.format(v));
   cz.kpi('c-total', 'resumo', 'clientesAno', n);
   cz.kpi('c-hotel', 'resumo', 'clientesHotel', n);
-  dash.draw('k-fatdelta', (el) => {
-    const s = dash.data('resumo');
-    const r = s.status === 'ok' ? s.data[0] : null;
-    el.className = 'cz-delta';
-    if (!r || r.variacao == null) { el.textContent = '—'; return; }
-    const pct = Math.round(r.variacao * 100);
-    el.classList.add(pct >= 0 ? 'cz-ok' : 'cz-bad');
-    el.textContent = `${pct >= 0 ? '+' : '−'}${Math.abs(pct)}% contra o mesmo dia do mês passado (${cz.brl.format(r.fatMesAnteriorMesmoDia)})`;
-  });
 
   // ---------- hotel ----------
   dash.draw('ch-ocupacao', (el) => {
@@ -853,7 +848,7 @@
       const total = freelasTotal + fixa;
       const fechados = [...porMes].filter(([m]) => m < mes);
       const noites = agenda.filter((a) => !a.cancelado && a.tipo === 'Hotel' && a.data.slice(0, 4) === ano && a.data <= hoje).length;
-      const faturadoHotel = faturas.filter((f) => f.valida && f.tipo === 'Hotel' && f.mes.slice(0, 4) === ano && f.criada <= hoje).reduce((s, f) => s + +f.total, 0);
+      const faturadoHotel = faturas.filter((f) => f.valida && f.tipo === 'Hotel' && f.mes.slice(0, 4) === ano && (f.vencimento || f.criada) <= hoje).reduce((s, f) => s + +f.total, 0);
       return [{
         total: Math.round(total * 100) / 100,
         freelas: Math.round(freelasTotal * 100) / 100,

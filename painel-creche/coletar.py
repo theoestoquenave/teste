@@ -1,5 +1,5 @@
 """Coleta os dados da unidade Nave Tatuapé (TecPet) e salva em JSON bruto."""
-import json, sys, time, urllib.request, urllib.parse, datetime as dt, os
+import json, sys, time, urllib.request, urllib.error, urllib.parse, datetime as dt, os
 
 SHOP = os.environ.get("TECPET_SHOP", "1885")  # Nave Tatuapé
 BASE = "https://api.tec.pet"
@@ -12,6 +12,11 @@ def get(path, **params):
         try:
             with urllib.request.urlopen(req, timeout=60) as r:
                 return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code == 404 and "/v1/client/" in path:  # cliente apagado no TecPet
+                return None
+            if tent == 4: raise
+            time.sleep(2 * (tent + 1))
         except Exception as e:
             if tent == 4: raise
             time.sleep(2 * (tent + 1))
@@ -47,7 +52,8 @@ dados["bookings"] = list({x["id"]: x for x in b}.values())
 print("agendamentos", len(dados["bookings"]), file=sys.stderr)
 
 inv = []
-for a, z in janelas(ini_ano, hoje):
+# desde o início do histórico (out/2025): faturas emitidas antes de janeiro podem vencer em 2026
+for a, z in janelas(min(ini_ano, dt.date(2025, 10, 1)), hoje):
     inv += paginar("/v1/invoice", startDate=a, endDate=z)
 dados["invoices"] = list({x["id"]: x for x in inv}.values())
 print("faturas", len(dados["invoices"]), file=sys.stderr)
