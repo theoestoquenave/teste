@@ -85,7 +85,8 @@
     <div class="cz-kpi" id="k-creche"><span class="cz-l">Na creche hoje</span><span class="cz-n" data-draw="k-creche" data-source="resumo" data-field="crecheHoje" data-row="0">—</span><span class="cz-l">diárias de day care</span></div>
     <div class="cz-kpi" id="k-pacotes"><span class="cz-l">Pacotes acabando</span><span class="cz-n" data-draw="k-pacotes" data-source="resumo" data-field="pacAlerta" data-row="0">—</span><span class="cz-l">restam 2 diárias ou menos, ou vence em 7 dias</span></div>
     <div class="cz-kpi" id="k-fatmes"><span class="cz-l">Recebido no mês</span><span class="cz-n" data-draw="k-recmes" data-source="resumo" data-field="recebidoMes" data-row="0">—</span><span class="cz-l">falta receber: <span data-draw="k-faltames" data-source="resumo" data-field="faltaMes" data-row="0">—</span></span><span class="cz-l">previsto no mês: <span data-draw="k-fatmes" data-source="resumo" data-field="fatMes" data-row="0">—</span></span></div>
-    <div class="cz-kpi" id="k-aberto"><span class="cz-l">Vencido sem pagar</span><span class="cz-n" data-draw="k-vencido" data-source="resumo" data-field="vencidoValor" data-row="0">—</span><span class="cz-l">a vencer: <span data-draw="k-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</span></span></div>
+    <div class="cz-kpi" id="k-aberto"><span class="cz-l">Vencido sem pagar</span><span class="cz-n" data-draw="k-vencido" data-source="resumo" data-field="vencidoValor" data-row="0">—</span><span class="cz-l">a vencer (todos os meses): <span data-draw="k-avencer" data-source="resumo" data-field="aVencerValor" data-row="0">—</span></span></div>
+    <div class="cz-kpi" id="k-avencermes"><span class="cz-l">A vencer neste mês</span><span class="cz-n" data-draw="k-avencermes" data-source="resumo" data-field="aVencerMes" data-row="0">—</span><span class="cz-l"><span data-draw="k-avencermesqtd" data-source="resumo" data-field="aVencerMesQtd" data-row="0">—</span> faturas de hoje até o fim do mês</span></div>
     <div class="cz-kpi" id="k-ano"><span class="cz-l">Faturado no ano</span><span class="cz-n" data-draw="k-ano" data-source="resumo" data-field="faturadoAno" data-row="0">—</span><span class="cz-l">recebido: <span data-draw="k-recebido" data-source="resumo" data-field="recebidoAno" data-row="0">—</span></span></div>
   </section>
 
@@ -333,6 +334,8 @@
         vencidoQtd: abertas.filter((f) => f.vencimento && f.vencimento < hoje).length,
         vencidoValor: soma(abertas.filter((f) => f.vencimento && f.vencimento < hoje), 'aberto'),
         aVencerValor: soma(abertas.filter((f) => !f.vencimento || f.vencimento >= hoje), 'aberto'),
+        aVencerMes: soma(abertas.filter((f) => f.vencimento && f.vencimento >= hoje && f.vencimento.slice(0, 7) === mes), 'aberto'),
+        aVencerMesQtd: abertas.filter((f) => f.vencimento && f.vencimento >= hoje && f.vencimento.slice(0, 7) === mes).length,
         faturadoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4) && f.mes <= mes), 'total'),
         recebidoAno: soma(validas.filter((f) => f.mes.slice(0, 4) === hoje.slice(0, 4) && f.mes <= mes), 'pago'),
         clientesAno: clientes.filter((c) => c.visitas > 0).length,
@@ -504,6 +507,8 @@
   cz.kpi('k-recmes', 'resumo', 'recebidoMes', (v) => cz.brl.format(v));
   cz.kpi('k-faltames', 'resumo', 'faltaMes', (v) => cz.brl.format(v));
   cz.kpi('k-avencer', 'resumo', 'aVencerValor', (v) => cz.brl.format(v));
+  cz.kpi('k-avencermes', 'resumo', 'aVencerMes', (v) => cz.brl.format(v));
+  cz.kpi('k-avencermesqtd', 'resumo', 'aVencerMesQtd', n);
   cz.kpi('k-vencido', 'resumo', 'vencidoValor', (v) => cz.brl.format(v));
   cz.kpi('k-ano', 'resumo', 'faturadoAno', (v) => cz.brl.format(v));
   cz.kpi('k-recebido', 'resumo', 'recebidoAno', (v) => cz.brl.format(v));
