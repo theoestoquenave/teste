@@ -75,7 +75,7 @@
       <a href="#hotel">Hotel e free-lancer</a>
       <a href="#creche">Pacotes de creche</a>
       <a href="#financeiro">Faturamento</a>
-      <a href="#abertas">Faturas em aberto</a>
+      <a href="#abertas">Faturas vencidas</a>
       <a href="#clientes">Clientes</a>
     </nav>
   </div>
@@ -167,8 +167,8 @@
 
   <section class="cz-sec" id="abertas">
     <header>
-      <h2>Faturas em aberto</h2>
-      <p class="cz-muted">Não pagas ou vencidas, da mais atrasada para a mais nova.</p>
+      <h2>Faturas vencidas</h2>
+      <p class="cz-muted">Não pagas e com vencimento antes de hoje, da mais atrasada para a mais nova. As que ainda vão vencer estão nos quadros do topo.</p>
     </header>
     <div class="cz-card">
       <div class="cz-tablewrap cz-tall">
@@ -625,8 +625,8 @@
     const s = dash.data('faturas');
     tb.replaceChildren();
     if (s.status !== 'ok') return;
-    const rs = s.data.filter((f) => f.valida && f.aberto > 0).map((f) => ({ ...f, atraso: f.vencimento ? -cz.diasAte(f.vencimento) : 0 })).sort((a, b) => b.atraso - a.atraso);
-    if (!rs.length) return cz.vazio(tb, 8, 'Nenhuma fatura em aberto.');
+    const rs = s.data.filter((f) => f.valida && f.aberto > 0).map((f) => ({ ...f, atraso: f.vencimento ? -cz.diasAte(f.vencimento) : 0 })).filter((f) => f.atraso > 0).sort((a, b) => b.atraso - a.atraso);
+    if (!rs.length) return cz.vazio(tb, 8, 'Nenhuma fatura vencida.');
     for (const f of rs) {
       const atrasada = f.atraso > 0;
       cz.row(tb, [f.cliente, { v: f.telefone, cls: 'cz-nw' }, f.pet, f.tipo, { v: cz.dataAno(f.vencimento), cls: 'cz-nw' },
