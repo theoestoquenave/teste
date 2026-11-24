@@ -453,7 +453,7 @@
       if (!rows.length) { const p = document.createElement('p'); p.className = 'cz-empty'; p.textContent = 'Sem dados no período.'; el.appendChild(p); return; }
       const W = Math.max(280, el.clientWidth || 600);
       const max = d3.max(rows, (r) => d3.sum(series, (s) => +r[s.key] || 0)) || 1;
-      const y = d3.scaleLinear().domain([0, max]).nice().range([height - 24, 8]);
+      const y = d3.scaleLinear().domain([0, max]).nice().range([height - 30, 8]);
       const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${height}`).attr('role', 'img').attr('aria-label', opts.aria);
       const yAxis = svg.append('g').call(d3.axisLeft(y).ticks(4).tickFormat(opts.tick || fmt).tickSize(0));
       let ml = 0; yAxis.selectAll('text').each(function () { ml = Math.max(ml, this.getComputedTextLength()); });
@@ -461,8 +461,8 @@
       yAxis.attr('transform', `translate(${ml},0)`).select('.domain').remove();
       svg.insert('g', ':first-child').attr('transform', `translate(${ml},0)`).call(d3.axisLeft(y).ticks(4).tickSize(-(W - ml)).tickFormat('')).call((g) => g.select('.domain').remove());
       const xb = d3.scaleBand().domain(rows.map((r) => r[x])).range([ml, W]).padding(0.2);
-      const every = Math.ceil(rows.length / Math.max(1, Math.floor((W - ml) / 44)));
-      svg.append('g').attr('transform', `translate(0,${height - 24})`).call(d3.axisBottom(xb).tickSize(0).tickPadding(6).tickFormat((v, i) => (i % every ? '' : label(v)))).select('.domain').remove();
+      const every = Math.ceil(rows.length / Math.max(1, Math.floor((W - ml) / 64)));
+      svg.append('g').attr('transform', `translate(0,${height - 30})`).call(d3.axisBottom(xb).tickSize(0).tickPadding(10).tickFormat((v, i) => (i % every ? '' : label(v)))).select('.domain').remove();
       const tip = document.createElement('div'); tip.className = 'cz-tip'; tip.hidden = true; el.appendChild(tip);
       const g = svg.append('g');
       rows.forEach((r) => {
@@ -472,7 +472,7 @@
           if (v > 0) g.append('rect').attr('x', xb(r[x])).attr('width', xb.bandwidth()).attr('y', y(acc + v)).attr('height', Math.max(0, y(acc) - y(acc + v))).style('fill', s.color);
           acc += v;
         });
-        g.append('rect').attr('x', xb(r[x]) - xb.step() * xb.paddingInner() / 2).attr('width', xb.step()).attr('y', 0).attr('height', height - 24).style('fill', 'transparent')
+        g.append('rect').attr('x', xb(r[x]) - xb.step() * xb.paddingInner() / 2).attr('width', xb.step()).attr('y', 0).attr('height', height - 30).style('fill', 'transparent')
           .on('pointerenter pointermove', (ev) => {
             tip.replaceChildren();
             const b = document.createElement('b'); b.textContent = opts.tipTitle ? opts.tipTitle(r) : label(r[x]); tip.appendChild(b);
