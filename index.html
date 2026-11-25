@@ -175,6 +175,20 @@
   .pill.crit{ background:var(--critical-soft); color:var(--critical); }
   .pill.neutral{ background:var(--surface-3); color:var(--text-muted); }
   .row-actions{ display:flex; gap:4px; justify-content:flex-end; }
+  .row-menu{ position:relative; display:inline-flex; }
+  .row-menu-panel{
+    position:absolute; right:0; top:calc(100% + 4px); z-index:20;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);
+    box-shadow:var(--shadow); min-width:208px; padding:4px; display:flex; flex-direction:column;
+  }
+  .row-menu-item{
+    display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+    padding:8px 10px; border:none; background:none; border-radius:var(--radius-sm);
+    font-size:13px; font-family:inherit; color:var(--text-primary); cursor:pointer;
+  }
+  .row-menu-item:hover{ background:var(--surface-3); }
+  .row-menu-item.danger{ color:var(--critical); }
+  .row-menu-item svg{ flex:none; opacity:.8; }
 
   /* ---------- log list ---------- */
   .log-list{ display:flex; flex-direction:column; border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; background:var(--surface); }
@@ -2028,14 +2042,17 @@ function rowHtml(r){
     '<td class="tabular" title="'+escapeHtml(tituloSaidaMedia(saidaServicoInfo))+'">'+(saidaServicoInfo.media!=null ? fmtNum(saidaServicoInfo.media,2) : '—')+'</td>'+
     '<td class="tabular" title="'+escapeHtml(tituloSaidaMediaPedido(saidaPedidoInfo))+'">'+(saidaPedidoInfo.media!=null ? fmtNum(saidaPedidoInfo.media,2) : '—')+'</td>'+
     '<td class="tabular">'+fmtBRL(r.valor)+'</td>'+
-    '<td><div class="row-actions">'+
-      '<button class="btn btn-sm btn-icon" title="Ver histórico" aria-label="Ver histórico" data-action="historico" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg></button>'+
-      '<button class="btn btn-sm btn-icon write-action" title="Editar nome" aria-label="Editar nome" data-action="editar-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'+
-      '<button class="btn btn-sm btn-icon write-action" title="Ajustar contagem" aria-label="Ajustar contagem" data-action="ajustar" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></button>'+
-      '<button class="btn btn-sm btn-icon write-action" title="Registrar compra" aria-label="Registrar compra" data-action="compra-item" data-item="'+it.id+'">+</button>'+
-      '<button class="btn btn-sm btn-icon write-action" title="Registrar saída" aria-label="Registrar saída" data-action="saida-item" data-item="'+it.id+'">−</button>'+
-      '<button class="btn btn-sm btn-icon write-action" title="Adicionar ao orçamento" aria-label="Adicionar ao orçamento" data-action="orcamento-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></button>'+
-      '<button class="btn btn-sm btn-icon write-action" title="Excluir produto" aria-label="Excluir produto" data-action="excluir-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>'+
+    '<td><div class="row-menu">'+
+      '<button class="btn btn-sm btn-icon" data-menu-toggle data-item="'+it.id+'" aria-haspopup="true" aria-expanded="false" title="Mais ações" aria-label="Mais ações"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button>'+
+      '<div class="row-menu-panel" hidden>'+
+        '<button class="row-menu-item" data-action="historico" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>Ver histórico</button>'+
+        '<button class="row-menu-item write-action" data-action="editar-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar nome</button>'+
+        '<button class="row-menu-item write-action" data-action="ajustar" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Ajustar contagem</button>'+
+        '<button class="row-menu-item write-action" data-action="compra-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Registrar compra</button>'+
+        '<button class="row-menu-item write-action" data-action="saida-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>Registrar saída</button>'+
+        '<button class="row-menu-item write-action" data-action="orcamento-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Adicionar ao orçamento</button>'+
+        '<button class="row-menu-item write-action danger" data-action="excluir-item" data-item="'+it.id+'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>Excluir produto</button>'+
+      '</div>'+
     '</div></td>'+
   '</tr>';
 }
@@ -4831,6 +4848,18 @@ function wireStaticEvents(){
     renderCatFilters(); renderStockTable();
   });
 
+  function closeAllRowMenus(exceto){
+    document.querySelectorAll('.row-menu-panel').forEach(function(p){
+      if(p===exceto) return;
+      p.hidden = true;
+      var t = p.previousElementSibling;
+      if(t) t.setAttribute('aria-expanded','false');
+    });
+  }
+  document.addEventListener('click', function(e){
+    if(!e.target.closest('.row-menu')) closeAllRowMenus();
+  });
+
   document.getElementById('stock-tbody').addEventListener('click', function(e){
     var toggle = e.target.closest('[data-toggle-cat]');
     if(toggle){
@@ -4838,8 +4867,19 @@ function wireStaticEvents(){
       if(collapsedCats.has(cat)) collapsedCats.delete(cat); else collapsedCats.add(cat);
       renderStockTable(); return;
     }
+    var menuToggle = e.target.closest('[data-menu-toggle]');
+    if(menuToggle){
+      e.stopPropagation();
+      var panel = menuToggle.nextElementSibling;
+      var abrindo = panel.hidden;
+      closeAllRowMenus(abrindo ? panel : null);
+      panel.hidden = !abrindo;
+      menuToggle.setAttribute('aria-expanded', String(abrindo));
+      return;
+    }
     var btn = e.target.closest('[data-action]');
     if(!btn) return;
+    closeAllRowMenus();
     var itemId = btn.dataset.item;
     if(btn.dataset.action==='ajustar') openAjusteModal(itemId);
     else if(btn.dataset.action==='editar-item') openEditarItemModal(itemId);
