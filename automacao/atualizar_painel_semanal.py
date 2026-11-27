@@ -16,6 +16,15 @@ Autenticação: espera que a rede do ambiente já injete o header Authorization
 
 Não publica nada sozinho: só gera o arquivo de saída. Quem publica é o agente
 que chama este script, via Artifact tool.
+
+Reconferência retroativa: além de avançar a partir da última data já
+importada, a rotina sempre reconfere os últimos RETRO_DIAS dias (mesmo que já
+importados), porque um agendamento pode ser marcado como concluído na TecPet
+dias depois de ter acontecido — se só avançássemos a janela pra frente, esse
+atendimento nunca mais seria pego. Como os lançamentos importados não guardam
+o id do agendamento/serviço na TecPet, a reconferência compara contagens por
+(unidade, tipoServico, data) entre o que já está importado nessa janela e o
+que a API retorna agora, e só insere a diferença (nunca remove nada).
 """
 import sys, os, json, random, time, urllib.request, urllib.error
 from datetime import date, timedelta
@@ -110,24 +119,40 @@ def main():
     _, _, tipos_servico = extract_array(content, '"tiposServico":[')
     catalogo = {t['nome']: t for t in tipos_servico}
 
+    RETRO_DIAS = 10  # reconfere sempre essa janela final, mesmo já importada (ver docstring)
+
     PREFIXO_NOTA = 'Importado da API TecPet (clínica) — '
-    datas_importadas = [l['data'] for l in lancamentos if l.get('subtipo') == 'servico' and (l.get('nota') or '').startswith(PREFIXO_NOTA)]
+    importados = [l for l in lancamentos if l.get('subtipo') == 'servico' and (l.get('nota') or '').startswith(PREFIXO_NOTA)]
+    datas_importadas = [l['data'] for l in importados]
     if datas_importadas:
         ultima = date.fromisoformat(max(datas_importadas))
     else:
         # fallback: nunca rodou isso aqui ainda — não deveria acontecer em uso normal
         ultima = date.fromisoformat(max(l['data'] for l in lancamentos if l.get('subtipo') == 'servico'))
-    desde = ultima + timedelta(days=1)
     ate = date.today() - timedelta(days=1)  # até ontem, pra não pegar dia incompleto
+    avanco = ultima + timedelta(days=1)
+    retro = ate - timedelta(days=RETRO_DIAS - 1)
+    desde = min(avanco, retro)
+    if desde > ate:
+        desde = ate
 
     print(f'Última data já importada (API clínica): {ultima.isoformat()}')
-    print(f'Puxando de {desde.isoformat()} até {ate.isoformat()}')
+    print(f'Puxando (com reconferência retroativa de {RETRO_DIAS} dias) de {desde.isoformat()} até {ate.isoformat()}')
 
     if desde > ate:
         print('Nada a fazer — já está em dia.')
         with open(dst, 'w', encoding='utf-8') as f:
             f.write(content)
         return
+
+    # contagem do que já está importado dentro da janela reconferida, por chave
+    # (unidade, tipoServico, data) — usada pra só inserir a diferença, nunca duplicar
+    from collections import Counter
+    ja_importado = Counter(
+        (l['unidade'], l['tipoServico'], l['data'])
+        for l in importados
+        if desde.isoformat() <= l['data'] <= ate.isoformat()
+    )
 
     shops_body = tecpet_get('/shop', params={'limit': 100})
     shops = [s for s in shops_body.get('data', []) if 'master' not in (s.get('name') or '').lower()]
@@ -156,11 +181,30 @@ def main():
                 last_id = rows[-1]['id']
         print(f'  {nome}: {n} ocorrências de clínica')
 
-    print(f'Total de ocorrências novas: {len(ocorrencias)}')
+    print(f'Total de ocorrências retornadas pela API na janela: {len(ocorrencias)}')
+
+    # só viram lançamento novo as ocorrências que excedem o que já estava importado
+    # pra cada chave (unidade, tipoServico, data) — isso cobre tanto dias totalmente
+    # novos (contagem já importada = 0) quanto atendimentos que mudaram de status
+    # pra DONE depois de um run anterior já ter coberto aquele dia
+    na_api = Counter((oc['unidade'], oc['tipoServico'], oc['data']) for oc in ocorrencias)
+    a_inserir = []
+    for chave, qtd_api in na_api.items():
+        faltam = qtd_api - ja_importado.get(chave, 0)
+        if faltam > 0:
+            unidade, nome_serv, dia = chave
+            a_inserir.extend([{'unidade': unidade, 'tipoServico': nome_serv, 'data': dia}] * faltam)
+
+    if a_inserir:
+        print(f'Ocorrências novas após reconferência (diferença por chave): {len(a_inserir)}')
+        for u, ts, d in sorted({(o["unidade"], o["tipoServico"], o["data"]) for o in a_inserir}):
+            print(f'  + {d}  {u}  {ts}')
+    else:
+        print('Nenhuma ocorrência nova após reconferência.')
 
     now_ms = int(time.time() * 1000)
     novos = []
-    for i, oc in enumerate(ocorrencias):
+    for i, oc in enumerate(a_inserir):
         nome_serv = oc['tipoServico']
         cat = catalogo.get(nome_serv)
         grupo = cat['grupo'] if cat else nome_serv
